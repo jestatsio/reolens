@@ -176,6 +176,10 @@ public struct SettingsPrivacyBucket: View {
     public var body: some View {
         Group {
             ICloudKeychainSyncSection()
+            // 0.7.0 — opt-in to sync camera passwords (encrypted, via the
+            // user's own CloudKit) so the Apple TV can stream. Distinct
+            // from the iCloud-Keychain toggle above.
+            CameraCredentialSyncSection()
             #if os(iOS)
             HomeKitSection(bridge: homeKitBridge)
             #endif

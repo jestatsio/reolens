@@ -23,7 +23,7 @@ public struct MotionRelayPublisherSection: View {
                 Text("New in 0.4.1. When on, this Mac uses your iCloud account to push motion events to your other Apple devices — so Reolens on iPhone/iPad can post notifications even when the app is closed.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Text("This works without any Reolens server — events ride through Apple's CloudKit under your own iCloud account. Apple throttles silent push delivery for free iCloud tiers, so busy cameras may not get every event. Requires this Mac running with the menu-bar mode on (Settings → General).")
+                Text("This works without any Reolens server — events ride through Apple's CloudKit under your own iCloud account. Apple throttles silent push delivery for free iCloud tiers, so busy cameras may not get every event. For round-the-clock delivery, turn on Reolens Hub (Settings → Background) so this Mac keeps listening even when closed.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                 Button {

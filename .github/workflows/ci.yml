@@ -356,6 +356,24 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      # 0.7.0 — tvOS viewer compile check, best-effort (the tvOS
+      # platform/runtime is intermittently absent on the macos-26 runner
+      # image, same constraint as the iOS step above). The AppTVOS
+      # library's Swift is also compiled by `swift build` on the host via
+      # `.tvOS(.v26)` in Package.swift, so this is an extra signal, not
+      # the only one. Flip to enforced once the runner image settles.
+      - name: Attempt tvOS build (best-effort, informational)
+        continue-on-error: true
+        run: |
+          set -x
+          xcodebuild \
+            -project AppiOS/ReolensiOS.xcodeproj \
+            -scheme ReolensTVOS \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath build-tvos \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
       # 0.6.0 plan §D — iOS simulator XCUITest job.
       # Drives the high-risk navigation journeys (Cold launch →
       # Settings → Notifications, Notification log push) against

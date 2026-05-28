@@ -121,4 +121,33 @@ struct AppPreferencesTests {
         #expect(prefs.lastViewedCameraID == nil)
     }
 
+    // MARK: - runAsHub (0.7.0)
+
+    @Test("runAsHub defaults to false on a fresh install")
+    func runAsHubDefaultsToFalse() {
+        let prefs = AppPreferences(defaults: makeFreshDefaults())
+        #expect(!prefs.runAsHub)
+    }
+
+    @Test("Setting runAsHub persists across instances")
+    func runAsHubRoundTrip() {
+        let defaults = makeFreshDefaults()
+        let writer = AppPreferences(defaults: defaults)
+        writer.runAsHub = true
+
+        let reader = AppPreferences(defaults: defaults)
+        #expect(reader.runAsHub)
+    }
+
+    @Test("Flipping runAsHub back to false persists as false")
+    func runAsHubCanBeFlippedBack() {
+        let defaults = makeFreshDefaults()
+        let writer = AppPreferences(defaults: defaults)
+        writer.runAsHub = true
+        #expect(AppPreferences(defaults: defaults).runAsHub)
+
+        writer.runAsHub = false
+        #expect(!AppPreferences(defaults: defaults).runAsHub)
+    }
+
 }

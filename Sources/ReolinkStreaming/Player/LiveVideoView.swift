@@ -131,7 +131,11 @@ public final class SampleBufferHostView: UIView {
         self.rotationDegrees = rotationDegrees
         if layerChanged {
             hosted?.removeFromSuperlayer()
-            layer.contentsScale = window?.screen.scale ?? UIScreen.main.scale
+            // Prefer the hosting window's screen scale. The previous
+            // `UIScreen.main.scale` fallback is deprecated and unreliable
+            // on tvOS (no meaningful "main" screen); 1.0 is a safe
+            // pre-window default that the next attach/layout corrects.
+            layer.contentsScale = window?.screen.scale ?? 1.0
             self.layer.addSublayer(layer)
             self.hosted = layer
         }

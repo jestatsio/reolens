@@ -134,6 +134,9 @@ struct iPadSplitShell: View {
             // — no stale push state from a previous section.
             .id(selectedSection)
         }
+        // 0.7.0 — "Hub offline" banner above the split view; zero
+        // height unless the always-on Hub's heartbeat is stale.
+        .safeAreaInset(edge: .top) { HubOfflineBanner() }
         .sheet(isPresented: $showingAdd) {
             AddCameraView()
         }

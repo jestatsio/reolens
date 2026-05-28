@@ -77,6 +77,11 @@ struct ReolensiOSApp: App {
                             UIApplication.shared.registerForRemoteNotifications()
                         }
                     }
+
+                    // 0.7.0 — if Apple TV credential sync is on, re-publish
+                    // the encrypted credentials so the TV picks up password
+                    // changes made on this device.
+                    TVCredentialSync.republishIfEnabled(store: store)
                 }
                 .onContinueUserActivity(CameraContinuity.cameraDetailActivityType) { activity in
                     if CameraContinuity.handle(activity: activity) {
@@ -110,6 +115,10 @@ struct ReolensiOSApp: App {
                         // cadence back to foreground (10 s). The next
                         // poll iteration picks up the shorter interval.
                         AdaptivePollSchedule.shared.enteredForeground()
+                        // 0.7.0 — re-check whether the always-on Hub is
+                        // alive so the "Hub offline" banner clears (or
+                        // appears) when the user returns to the app.
+                        Task { await HubHealth.shared.refresh() }
                     case .background:
                         // Cancel the periodic loop while backgrounded
                         // so we don't fire snapshot HTTP calls iOS
@@ -226,6 +235,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         NotificationTapDelegate.install()
+        // 0.7.0 — register the Live Activity bridge so AppShared's
+        // `EventNotifier` can drive ActivityKit (it can't import
+        // ActivityKit itself). Without this the bridge stays nil and NO
+        // Live Activity — local OR relayed — ever starts; this closes
+        // that latent gap and is the prerequisite for the relay path.
+        if #available(iOS 26.0, *) {
+            EventNotifier.liveActivityBridge = MotionEventActivityBridge()
+        }
         return true
     }
 
@@ -476,6 +493,16 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         try? SharedContainer.appendMotionEvent(widgetEvent)
         await MainActor.run {
             CameraNotificationHealth.shared.refresh()
+        }
+
+        // 0.7.0 — drive the in-flight Live Activity from this relayed
+        // event. Only reached after the user's notification gates passed
+        // above, mirroring the local Baichuan-driven path. This is the
+        // server-free "Live Activity relay": the Hub already published
+        // the MotionEvent; we update the activity locally here (a true
+        // ActivityKit push would need a provider server — AGENTS.md §5).
+        if #available(iOS 26.0, *) {
+            await LiveActivityRelayUpdater.apply(event)
         }
     }
 

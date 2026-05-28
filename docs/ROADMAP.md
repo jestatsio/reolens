@@ -58,17 +58,24 @@ genuinely minor-bump-worthy storyline turns out to be.
 
 ## Live Activity push relay (peer-device)
 
-- **Status:** Planned (0.7.0).
-- **Blocker:** No sender yet. The current local Baichuan-event-driven
-  path is the only updater — push wiring is purely additive. Reolens
-  has no servers and isn't standing any up, so the relay rides peer
-  Apple devices on the same iCloud account.
-- **Approach:** a peer-Apple-device relay (one Mac acts as sender for
-  other devices on the same iCloud account, similar to the existing
-  motion-event relay). Token persistence already lives in
+- **Status:** Shipped in 0.7.0 — as a *receiver-side local update*, not a
+  true ActivityKit push.
+- **Why no true push:** updating a Live Activity via its push token
+  requires an APNs provider signed with a `.p8` key — i.e. a server, which
+  AGENTS.md §5 forbids and Reolens will never stand up. The push token is
+  therefore kept device-local and never transmitted.
+- **Mechanism (honest):** the Hub Mac writes the **same `MotionEvent`
+  CKRecord it already publishes** for notifications. The receiving device,
+  woken by the existing CloudKit silent-push subscription, updates its own
+  in-flight Live Activity **locally** via `MotionEventActivityController`.
+  This runs in the host app only — the Notification Service Extension is a
+  separate process and can't hold the app's `Activity` handles.
+- **Note:** 0.7.0 also fixed a latent gap where
+  `EventNotifier.liveActivityBridge` was never assigned, so *no* Live
+  Activity (local or relayed) had been starting on iOS.
+- **Code:** [AppiOS/Sources/LiveActivities/LiveActivityRelayUpdater.swift](../AppiOS/Sources/LiveActivities/LiveActivityRelayUpdater.swift),
   [Sources/AppShared/LiveActivityPushTokenRegistry.swift](../Sources/AppShared/LiveActivityPushTokenRegistry.swift)
-  / `live-activity-tokens_v1.json`; 0.7.0 wires the sender.
-- **Code:** [Sources/AppShared/LiveActivityPushTokenRegistry.swift](../Sources/AppShared/LiveActivityPushTokenRegistry.swift).
+  (now a device-local index, not server fuel).
 
 ## Coverage ratchet toward 80%
 

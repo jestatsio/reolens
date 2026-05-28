@@ -201,6 +201,27 @@ So adding a field requires either the Console or `cktool`:
    back to Dev.
 4. `Scripts/deploy-cloudkit-schema.sh promote` — Dev → Production.
 
+### 0.7.0 new record types: `HubStatus` and `CameraCredential`
+
+0.7.0 adds two record types that, like `MotionEvent`, work on Development
+immediately but **must be promoted to Production** before a release build
+can use them:
+
+- **`HubStatus`** — the Hub-offline heartbeat
+  (`Sources/AppShared/HubStatusRelay.swift`). Fields: `hubDeviceID`,
+  `hubDeviceName`, `lastSeen`, `appVersion`, `relayPublisherEnabled`.
+  Receivers fetch all records, so it needs the `recordName` **Queryable**
+  index.
+- **`CameraCredential`** — encrypted camera passwords for the Apple TV
+  (`Sources/AppShared/CameraCredential.swift`). Fields: `cameraID`
+  (plaintext UUID) and **`password` — must be marked ENCRYPTED** in the
+  schema. Also needs the `recordName` Queryable index so the tvOS reader
+  can fetch.
+
+Promote both the same way as `MotionEvent`. Until promoted, the
+Hub-offline banner and Apple TV streaming silently no-op on
+release-signed builds (the publisher logs a save failure).
+
 ## What this setup does **not** give you
 
 - **Notifications without a Mac at home.** There's no iOS-only path today.
