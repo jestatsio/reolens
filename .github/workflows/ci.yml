@@ -202,21 +202,16 @@ jobs:
 
       # Validate the built .app is shippable without launching it. We
       # tried a "smoke launch" with --smoke-test and it kept tripping a
-      # SIGTRAP inside dyld load on the macos-15 runner (likely an
-      # interaction between hardened runtime + ad-hoc signing + the
-      # embedded Sparkle.framework — works locally, doesn't on the CI
-      # runner image). Rather than keep chasing it, we validate the
-      # *structure* of the build:
+      # SIGTRAP inside dyld load on the CI runner image (hardened runtime
+      # + ad-hoc signing interaction — works locally, doesn't on CI), so
+      # we validate the *structure* instead:
       #
-      #   - codesign passes on the main binary, the framework, and
-      #     every nested helper / XPC service
+      #   - codesign passes on the main binary
       #   - Info.plist has the version + bundle ID we expect
-      #   - Sparkle.framework is embedded with its EdDSA helpers intact
-      #   - the executable's rpaths include @executable_path/../Frameworks
       #
-      # Actual launch + GUI behavior is verified against a real
-      # Developer ID-signed build by the release.yml workflow on every
-      # tag push, before the DMG ships.
+      # This is the local-dev ad-hoc build (Scripts/build-app.sh). The
+      # shipping App Store build is verified separately by release.yml's
+      # mac-testflight job on every tag push.
       - name: Validate .app structure + signing
         run: |
           set -euo pipefail
@@ -226,7 +221,6 @@ jobs:
           test -x "${APP}/Contents/MacOS/Reolens"
           test -f "${APP}/Contents/Info.plist"
           test -f "${APP}/Contents/Resources/AppIcon.icns"
-          test -d "${APP}/Contents/Frameworks/Sparkle.framework"
 
           echo "==> Info.plist sanity"
           BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "${APP}/Contents/Info.plist")
@@ -238,16 +232,6 @@ jobs:
 
           echo "==> codesign --verify (recursive, deep)"
           codesign --verify --deep --strict --verbose=2 "${APP}"
-
-          echo "==> Sparkle helpers present"
-          test -f "${APP}/Contents/Frameworks/Sparkle.framework/Versions/B/Sparkle"
-          test -f "${APP}/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
-          test -d "${APP}/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices"
-
-          echo "==> rpath includes @executable_path/../Frameworks"
-          otool -l "${APP}/Contents/MacOS/Reolens" \
-            | grep -A2 LC_RPATH \
-            | grep -q "@executable_path/../Frameworks"
 
       - name: Upload .app artifact
         uses: actions/upload-artifact@v7
