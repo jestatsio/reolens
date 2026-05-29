@@ -19,6 +19,12 @@ settings:
     REOLENS_IOS_WIDGETS_PROFILE_UUID: ""
     REOLENS_IOS_NOTIFICATION_SERVICE_PROFILE_NAME: ""
     REOLENS_IOS_NOTIFICATION_SERVICE_PROFILE_UUID: ""
+    # macOS App Store target (ReolensMac). Empty by default so local
+    # macOS builds use Automatic signing; Scripts/build-mac.sh overrides
+    # these via xcodebuild build settings to force Manual + the Mac App
+    # Store profile. Mirrors the REOLENS_IOS_* pattern above.
+    REOLENS_MAC_APP_PROFILE_NAME: ""
+    REOLENS_MAC_APP_PROFILE_UUID: ""
 packages:
   Reolens:
     path: ..
@@ -152,7 +158,7 @@ targets:
           - group.com.reolens.Reolens
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens
         PRODUCT_NAME: Reolens
         MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "19"
@@ -219,7 +225,7 @@ targets:
           - group.com.reolens.Reolens
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.Widgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.Widgets
         PRODUCT_NAME: ReolensiOSWidgets
         MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "19"
@@ -295,7 +301,7 @@ targets:
           - group.com.reolens.Reolens
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.NotificationService
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.NotificationService
         PRODUCT_NAME: ReolensiOSNotificationService
         MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "19"
@@ -327,7 +333,7 @@ targets:
       - path: UITests
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.UITests
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.UITests
         PRODUCT_NAME: ReolensiOSUITests
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -380,3 +386,93 @@ targets:
     dependencies:
       - package: Reolens
         product: AppTVOS
+  # ------------------------------------------------------------------
+  # Native macOS App Store app (0.7.0).
+  #
+  # Ships on the Mac App Store / TestFlight under the SAME App Store
+  # Connect record as the iOS app (shared bundle id com.reolens.Reolens),
+  # so iOS + macOS appear as one multiplatform app. Compiles the App/
+  # sources (the existing macOS SwiftUI app) against the shared SPM
+  # products — same CloudKit container / App Group / KVS as iOS.
+  #
+  # App-Store-specific vs the Developer-ID/DMG build Scripts/build-app.sh
+  # still produces for local dev:
+  #   - No Sparkle (the App Store updates the app) — removed from App/.
+  #   - App Store entitlements (App/Reolens.appstore.entitlements): no
+  #     library-validation, no hand-set application-identifier.
+  #   - The macOS-only Reolens Hub ships its engine but NOT a headless
+  #     LaunchAgent (App Store can't ship a relaunch-the-binary login
+  #     agent) — see App/Hub/HubController.swift.
+  #   - Widgets/ deferred (no macOS widget extension yet).
+  #
+  # Archived + uploaded by Scripts/build-mac.sh, mirroring build-ios.sh.
+  # ------------------------------------------------------------------
+  ReolensMac:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: ../App
+        excludes:
+          - "Info.plist"
+          - "Reolens.entitlements"
+          - "Reolens.dev.entitlements"
+          - "Reolens.appstore.entitlements"
+          - "Widgets"
+      - path: MacResources/Assets.xcassets
+        buildPhase: resources
+    info:
+      path: MacResources/Info.plist
+      properties:
+        CFBundleDisplayName: Reolens
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIconName: AppIcon
+        LSApplicationCategoryType: public.app-category.video
+        LSMinimumSystemVersion: "$(MACOSX_DEPLOYMENT_TARGET)"
+        NSHighResolutionCapable: true
+        NSLocalNetworkUsageDescription: "Reolens needs to connect to Reolink cameras, NVRs, and Home Hubs on your local network."
+        NSMicrophoneUsageDescription: "Reolens uses the microphone for two-way talk to your Reolink cameras."
+        NSBonjourServices:
+          - _http._tcp
+          - _rtsp._tcp
+        NSUserActivityTypes:
+          - io.reolens.camera-detail
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+          NSAllowsArbitraryLoads: true
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.reolens.channelDrag
+            UTTypeDescription: Reolens channel drag payload
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification: {}
+          - UTTypeIdentifier: com.reolens.deviceDrag
+            UTTypeDescription: Reolens device drag payload
+            UTTypeConformsTo:
+              - public.data
+            UTTypeTagSpecification: {}
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens
+        PRODUCT_NAME: Reolens
+        MARKETING_VERSION: "0.7.0"
+        CURRENT_PROJECT_VERSION: "19"
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        DEVELOPMENT_TEAM: 5M9UT7VQ8Q
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: ../App/Reolens.appstore.entitlements
+        PROVISIONING_PROFILE_SPECIFIER: "$(REOLENS_MAC_APP_PROFILE_NAME)"
+        PROVISIONING_PROFILE: "$(REOLENS_MAC_APP_PROFILE_UUID)"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: YES
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: Reolens
+        product: ReolinkAPI
+      - package: Reolens
+        product: ReolinkStreaming
+      - package: Reolens
+        product: ReolinkBaichuan
+      - package: Reolens
+        product: AppShared

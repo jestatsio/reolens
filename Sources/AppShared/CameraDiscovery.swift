@@ -381,7 +381,11 @@ package final class BonjourCollector: @unchecked Sendable {
 }
 
 // MARK: - Local IP helpers (CameraDiscovery static)
-package extension CameraDiscovery {
+// `public` (not `package`) so the out-of-package macOS App Store target
+// (ReolensMac in AppiOS/project.yml) can call primarySubnetPrefix() to
+// show the subnet label in Add Camera. The iOS app only needs the public
+// scan() APIs; the macOS Add Camera sheet surfaces the detected subnet.
+public extension CameraDiscovery {
 
     /// Find the /24 prefix of the Mac's primary IPv4 interface (en0/en1/en2
     /// — any non-loopback, up-and-running interface with a valid v4 addr).

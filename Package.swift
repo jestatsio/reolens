@@ -52,13 +52,7 @@ let package = Package(
         // works from a checkout.
         .executable(name: "RemoteSmoke", targets: ["RemoteSmoke"])
     ],
-    dependencies: [
-        // Sparkle 2 powers the in-app updater. The SPM artifact is an
-        // XCFramework — `swift build` links it, and `Scripts/build-app.sh`
-        // copies + re-signs Sparkle.framework into the produced .app
-        // bundle so the framework is on the runtime rpath.
-        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0")
-    ],
+    dependencies: [],
     targets: [
         .target(
             name: "ReolinkAPI",
@@ -186,8 +180,7 @@ let package = Package(
                 "ReolinkAPI",
                 "ReolinkStreaming",
                 "ReolinkBaichuan",
-                "AppShared",
-                .product(name: "Sparkle", package: "Sparkle")
+                "AppShared"
             ],
             path: "App",
             // 0.5.0 — Widgets/ is a separate WidgetKit app-extension
@@ -198,7 +191,7 @@ let package = Package(
             // 0.7.0 — the Hub LaunchAgent plist is a build-time artifact
             // embedded into Contents/Library/LaunchAgents/ by
             // Scripts/build-app.sh, not an SPM source or resource.
-            exclude: ["Info.plist", "Reolens.entitlements", "Reolens.dev.entitlements", "Widgets", "Hub/com.reolens.Reolens.Hub.plist"],
+            exclude: ["Info.plist", "Reolens.entitlements", "Reolens.dev.entitlements", "Reolens.appstore.entitlements", "Widgets"],
             swiftSettings: [
                 // StrictConcurrency is implicit at swift-tools-version 6.0;
                 // enabling it explicitly is rejected by the toolchain.

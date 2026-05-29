@@ -67,16 +67,6 @@
          silently no-op. -->
     <key>com.apple.developer.ubiquity-kvstore-identifier</key>
     <string>5M9UT7VQ8Q.com.reolens.Reolens</string>
-    <!-- Allow loading the embedded Sparkle.framework. Hardened Runtime's
-         Library Validation otherwise requires every loaded library to be
-         signed by Apple or by the same Team ID as the main app. With ad-hoc
-         dev signing both have "no team" but Library Validation still
-         refuses; with a real Developer ID, Sparkle's bundled binaries
-         carry the *Sparkle Project's* team ID, not ours, and would also be
-         refused. Disabling it is the standard pattern for apps embedding
-         third-party signed frameworks. -->
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <true/>
     <!-- 0.6.0 Slice B2: HomeKit bridge entitlement.
          Uncomment when signing under a Team ID with HomeKit capability
          enabled and the project has the HomeKit capability checked in

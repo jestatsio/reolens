@@ -16,7 +16,6 @@ extension Notification.Name {
 struct ReolensApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var store = CameraStore()
-    @State private var updater = UpdaterController()
 
     var body: some Scene {
         WindowGroup("Reolens") {
@@ -37,10 +36,11 @@ struct ReolensApp: App {
                     // opting in.
                     MenuBarController.shared.syncFromDefaults(store: store)
                     // 0.7.0 — if this Mac is the designated Reolens Hub,
-                    // bring up the always-on listener now. Also covers a
-                    // `--hub` headless login launch (this scene's `.task`
-                    // is where the engine gets the shared CameraStore).
-                    // Idempotent — safe alongside the toggle path.
+                    // bring up the listener now so it starts publishing
+                    // even when relaunched at login with no window yet
+                    // (this scene's `.task` is where the engine gets the
+                    // shared CameraStore). Idempotent — safe alongside the
+                    // toggle path.
                     HubController.shared.syncFromDefaults(store: store)
                     // 0.7.0 — if Apple TV credential sync is on, re-publish
                     // the encrypted credentials so the TV picks up any
@@ -70,20 +70,6 @@ struct ReolensApp: App {
                             store.cameras.compactMap { store.session(for: $0.id) }
                         }
                         await BookmarkAutoDownloader.shared.reconcile(across: sessions)
-                    }
-                    // 0.7.0 — a `--hub` login launch opens this window
-                    // only to run the bootstrap above; close it so the
-                    // Hub runs headless. The process survives via
-                    // applicationShouldTerminateAfterLastWindowClosed
-                    // (runAsHub); reopening Reolens promotes it back to a
-                    // regular windowed app. (A brief window flash at
-                    // login is the known trade-off of bootstrapping the
-                    // shared CameraStore through the scene — verified on
-                    // a Developer-ID-signed build.)
-                    if CommandLine.arguments.contains("--hub") {
-                        for window in NSApp.windows where window.title == "Reolens" {
-                            window.close()
-                        }
                     }
                 }
                 .onContinueUserActivity(CameraContinuity.cameraDetailActivityType) { activity in
@@ -203,14 +189,6 @@ struct ReolensApp: App {
                     showAboutPanel()
                 }
             }
-            // "Check for Updates…" sits just under the About item, which
-            // is the macOS HIG-prescribed location for it.
-            CommandGroup(after: .appInfo) {
-                Button("Check for Updates…") {
-                    updater.checkForUpdates()
-                }
-                .disabled(!updater.canCheckForUpdates)
-            }
             SidebarCommands()
             ToolbarCommands()
             // 0.6.1 — Camera menu with keyboard shortcuts. Each item
@@ -295,13 +273,10 @@ final class AboutPanelController {
 /// `.regular` activation here so `swift run Reolens` actually shows a window.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillFinishLaunching(_ notification: Notification) {
-        // 0.7.0 — the Reolens Hub LaunchAgent relaunches this same
-        // binary headless with `--hub`. Run it as an accessory (no Dock
-        // icon, not in the app switcher) so the always-on listener is
-        // invisible. A normal launch stays `.regular` so `swift run
-        // Reolens` / a Finder double-click still shows a window.
-        let isHubLaunch = CommandLine.arguments.contains("--hub")
-        NSApp.setActivationPolicy(isHubLaunch ? .accessory : .regular)
+        // SwiftPM executables launch as a background tool by default (no
+        // Dock icon / window focus), so force `.regular` to make `swift
+        // run Reolens` / a Finder double-click show a window.
+        NSApp.setActivationPolicy(.regular)
         // Install the notification-tap delegate as early as possible
         // so a cold-launch tap on an alarm notification is routed
         // correctly. willFinishLaunching is the earliest hook NSApp
@@ -357,27 +332,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// When the user has opted into menu-bar mode (Settings → General →
-    /// "Run in the menu bar when closed", 0.4.0), closing the last
-    /// window leaves the app running so the menu-bar item can keep
-    /// posting motion notifications. AGENTS.md §10 — only honors the
-    /// flag the user explicitly flipped on, so default behavior
-    /// (terminate on last window close) is unchanged.
+    /// "Run in the menu bar when closed", 0.4.0) OR designated this Mac
+    /// as a Reolens Hub (0.7.0), closing the last window leaves the app
+    /// running so the menu-bar item / Hub engine keep publishing motion
+    /// notifications. AGENTS.md §10 — only honors the flags the user
+    /// explicitly flipped on, so default behavior (terminate on last
+    /// window close) is unchanged.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        // Stay alive after the last window closes when the user opted
-        // into menu-bar mode OR designated this Mac as a Reolens Hub
-        // (0.7.0) — the Hub's headless listener must keep running with
-        // no window open. Both are explicit, user-flipped opt-ins, so
-        // the default (terminate on last window close) is unchanged.
         let menuBar = UserDefaults.standard.bool(forKey: MenuBarController.menuBarModeKey)
         return !(menuBar || AppPreferences.runAsHubIsOn)
     }
 
-    /// 0.7.0 — a headless Hub runs `.accessory` with no window. When the
-    /// user reopens Reolens (Finder, Spotlight, or "Open Reolens" from
-    /// the menu bar) LaunchServices reactivates this same process rather
-    /// than spawning a second instance, which preserves the
+    /// When Reolens is running with no visible window (menu-bar mode, or
+    /// Hub mode after the window was closed) and the user reopens it
+    /// (Finder, Spotlight, Dock), LaunchServices reactivates this same
+    /// process rather than spawning a second instance — preserving the
     /// single-`CameraStore` / one-Baichuan-connection-per-camera
-    /// invariant. Promote back to a regular, Dock-visible app and let
+    /// invariant. Make sure we're a regular, Dock-visible app and let
     /// AppKit re-present the WindowGroup window.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if NSApp.activationPolicy() != .regular {

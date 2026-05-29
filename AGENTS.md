@@ -10,16 +10,16 @@ The product is small, opinionated, and trust-sensitive. People install it becaus
 
 ## 1. Platform parity is the default
 
-Any user-visible feature shipped on one Apple platform must work on the others. macOS, iPadOS, and iPhone are not tiers — they are equal targets. If a feature is genuinely platform-only (e.g. Sparkle auto-update, which is macOS-only because iOS uses TestFlight/App Store), it must be a documented carve-out with rationale in the relevant view/file's header comment.
+Any user-visible feature shipped on one Apple platform must work on the others. macOS, iPadOS, and iPhone are not tiers — they are equal targets. If a feature is genuinely platform-only (e.g. menu-bar mode, which is macOS-only because iOS has no menu bar), it must be a documented carve-out with rationale in the relevant view/file's header comment.
 
 When you add a feature, ship it everywhere or open a tracking issue for the missing platform in the same PR.
 
-**Documented carve-outs (current as of 0.6.0):**
+**Documented carve-outs (current as of 0.7.0):**
 
-- Sparkle auto-update — macOS only (iOS uses TestFlight / App Store).
+- App distribution — both platforms ship through the App Store / TestFlight under ONE multiplatform record (shared bundle id `com.reolens.Reolens`). 0.7.0 retired the macOS Developer-ID DMG + Sparkle auto-updater; the Mac app now updates via the App Store like iOS. No carve-out — distribution is uniform. See `.github/workflows/release.yml` + `Scripts/build-mac.sh` / `build-ios.sh`.
 - Picture-in-Picture — iOS / iPadOS only (no macOS analog).
 - Menu-bar mode + Launch at Login — macOS only.
-- **Reolens Hub (headless always-on agent, added in 0.7.0)** — macOS only. iPhone/iPad/Apple TV can't hold a persistent background camera connection, so one always-on Mac acts as the listener that publishes motion events to the user's private CloudKit database; the other platforms consume those events. Explicit per-Mac opt-in (`AppPreferences.runAsHub`); registers a headless `SMAppService.agent` LaunchAgent that relaunches the same signed binary with `--hub`. There is still no Reolens server — CloudKit-under-the-user's-own-iCloud remains "the server" (AGENTS.md §5). See `Sources/AppShared/HubEngine.swift` (cross-platform, testable reconcile logic) and `App/Hub/HubController.swift` (macOS lifecycle + login-item shell).
+- **Reolens Hub (added in 0.7.0)** — macOS only. iPhone/iPad/Apple TV can't hold a persistent background camera connection, so one Mac acts as the listener that publishes motion events to the user's private CloudKit database; the other platforms consume those events. Explicit per-Mac opt-in (`AppPreferences.runAsHub`) starts the `HubEngine` (connect every camera + publish + CloudKit heartbeat). The engine keeps running after the window closes; pair it with "Launch at login" (the sandbox-safe `SMAppService.mainApp`) to restart after a reboot. The App Store build ships **no** headless `SMAppService.agent` LaunchAgent — a login agent that relaunches the binary itself isn't App Store compatible, so the always-on-while-logged-out tier was dropped when the Mac app moved to the App Store. There is still no Reolens server — CloudKit-under-the-user's-own-iCloud remains "the server" (AGENTS.md §5). See `Sources/AppShared/HubEngine.swift` (cross-platform, testable reconcile logic) and `App/Hub/HubController.swift` (macOS lifecycle shell).
 - Local-network Bonjour discovery sheet — historical iOS-only, gained macOS parity in 0.5.0.
 - **iOS Live Activities + Dynamic Island** — iOS / iPadOS only (ActivityKit has no macOS equivalent; macOS users see the menu-bar mode + desktop widget instead). Added in 0.5.0; 0.5.1 widened to hub-grouped semantics + APNs push-token registration (`pushType: .token`).
 - **Widgets** — ship on both platforms (Home Screen / Lock Screen / Control Center on iOS, desktop widgets on macOS). No carve-out needed for widgets themselves.

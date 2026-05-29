@@ -111,29 +111,22 @@ struct SettingsView: View {
     }
 
     /// 0.7.0 — macOS-only "Reolens Hub" section. Designating this Mac as
-    /// the Hub makes it the always-on listener: it connects every camera
-    /// and publishes motion events to the user's private CloudKit
-    /// database even with no window open, so their other Apple devices
-    /// get notifications, Live Activities, and remote viewing without
-    /// anyone keeping the app open. One Mac per home should be the Hub;
-    /// others stay passive viewers. No iOS analog (iPhone/iPad can't
-    /// hold a background listener) — AGENTS.md §1 carve-out.
+    /// the Hub makes it the active listener: it connects every camera and
+    /// publishes motion events to the user's private CloudKit database so
+    /// their other Apple devices get notifications, Live Activities, and
+    /// remote viewing. The engine keeps running after the window closes;
+    /// pair with "Launch at login" so it restarts automatically after a
+    /// reboot. One Mac per home should be the Hub; others stay passive
+    /// viewers. No iOS analog (iPhone/iPad can't hold a background
+    /// listener) — AGENTS.md §1 carve-out.
     private var hubSection: some View {
         Section("Reolens Hub") {
             Toggle("Run this Mac as a Reolens Hub", isOn: $runAsHub)
                 .onChange(of: runAsHub) { _, newValue in
                     HubController.shared.setRunAsHub(newValue, store: store)
                     hubEngine = HubController.shared.activeEngine
-                    // Hub mode registers its own headless LaunchAgent, so
-                    // it supersedes the foreground "Launch at login"
-                    // checkbox — force that off so two login items can't
-                    // both relaunch Reolens.
-                    if newValue, launchAtLogin {
-                        launchAtLogin = false
-                        MenuBarController.shared.setLaunchAtLogin(false)
-                    }
                 }
-            Text("New in 0.7.0. Pick one always-on Mac (a Mac mini is ideal) as your Hub. It watches every camera around the clock and relays motion to your iPhone, iPad, Apple TV, and Watch — no Reolens server, just your own iCloud. Runs headless and starts at login; turn it off here anytime.")
+            Text("New in 0.7.0. Pick one Mac (a Mac mini is ideal) as your Hub — it watches every camera and relays motion to your iPhone, iPad, Apple TV, and Watch using your own iCloud, no Reolens server. It keeps watching after you close the window; turn on “Launch at login” to have it start automatically. Turn it off here anytime.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if runAsHub, let engine = hubEngine {
