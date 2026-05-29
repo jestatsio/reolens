@@ -61,7 +61,7 @@ watch_target.build_configurations.each do |config|
   bs['SWIFT_VERSION']                         = '6.0'
   bs['GENERATE_INFOPLIST_FILE']               = 'NO'
   bs['CURRENT_PROJECT_VERSION']               = '19'
-  bs['MARKETING_VERSION']                     = '0.7.0'
+  bs['MARKETING_VERSION']                     = '0.8.0'
   bs['ENABLE_PREVIEWS']                       = 'YES'
   bs['ASSETCATALOG_COMPILER_APPICON_NAME']    = 'AppIcon'
   bs['LD_RUNPATH_SEARCH_PATHS']               = '$(inherited) @executable_path/Frameworks'

@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-29
+
+The 0.8.0 line — "Mac App Store".
+
+### Added
+
+- **Reolens for Mac ships on the Mac App Store / TestFlight**, under the
+  same App Store Connect record as the iPhone/iPad app — one app, both
+  platforms (shared bundle id `com.reolens.Reolens`). macOS updates now
+  arrive through the App Store.
+
+### Changed
+
+- **Unified bundle identifier.** The iPhone/iPad app moved from
+  `com.reolens.Reolens.iOS` to `com.reolens.Reolens` so iOS and macOS
+  share one multiplatform App Store record. Your camera list (iCloud
+  Drive) and motion-event history (CloudKit) are keyed to the iCloud
+  container, not the bundle id, so they carry over unchanged; device-local
+  Keychain passwords are re-entered on first launch (they never synced by
+  default — AGENTS.md §4).
+- **Reolens Hub** keeps publishing motion events while the app is running,
+  but the always-on headless `SMAppService.agent` LaunchAgent was removed
+  for App Store compatibility. Pair "Run as Hub" with "Launch at login" to
+  keep it running across reboots.
+
+### Removed
+
+- macOS Developer-ID **DMG distribution + Sparkle auto-update** — the App
+  Store handles macOS updates now. The DMG / notarization / appcast
+  pipeline and the in-app updater are retired.
+
 ## [0.7.0] — 2026-05-28
 
 The 0.7.0 line — "Always-on + Big Screen".
@@ -2121,7 +2152,8 @@ First public release.
 - All camera passwords stored in the macOS Keychain — never in plain text
 - No analytics, no telemetry, no accounts
 
-[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/jestatsio/reolens/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jestatsio/reolens/compare/v0.6.11...v0.7.0
 [0.6.6]: https://github.com/jestatsio/reolens/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/jestatsio/reolens/compare/v0.6.4...v0.6.5
