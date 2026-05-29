@@ -89,14 +89,23 @@ export CKTOOL_CONTAINER=iCloud.com.reolens.Reolens
 Scripts/deploy-cloudkit-schema.sh export
 git add CloudKit/schema.ckdb && git commit -m 'chore: snapshot CloudKit schema (HubStatus + CameraCredential)'
 
-# 3. Promote Development → Production:
-Scripts/deploy-cloudkit-schema.sh promote
+# 3. Deploy Development → Production — CONSOLE ONLY (see note below):
+Scripts/deploy-cloudkit-schema.sh promote   # prints the exact Console steps
 ```
 
+> **Production deploys are Console-only.** The `cktool` shipped with Xcode 26
+> can read any environment and write **Development** (`import-schema
+> --environment DEVELOPMENT`), but it **cannot write Production** —
+> `import-schema --environment PRODUCTION` is rejected with *"endpoint not
+> applicable in the environment 'production'"*, and there is no
+> clone/deploy/promote subcommand. So the Development → Production deploy is
+> done in the **CloudKit Console** (Schema → "Deploy Schema Changes…" →
+> Development to Production → Deploy). `… promote` just prints those steps.
+
 Thereafter, additive changes are: edit `CloudKit/schema.ckdb`,
-`Scripts/deploy-cloudkit-schema.sh push` (→ Dev), then `promote` (→ Prod).
-`Scripts/deploy-cloudkit-schema.sh diff` shows drift between the live Dev
-schema and the committed file.
+`Scripts/deploy-cloudkit-schema.sh push` (→ Dev), then deploy to Production
+in the Console. `Scripts/deploy-cloudkit-schema.sh diff` shows drift between
+the live Dev schema and the committed file.
 
 ## Verify
 

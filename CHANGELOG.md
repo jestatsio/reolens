@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-05-28
+
 The 0.7.0 line — "Always-on + Big Screen".
 
 ### Added
@@ -2119,7 +2121,8 @@ First public release.
 - All camera passwords stored in the macOS Keychain — never in plain text
 - No analytics, no telemetry, no accounts
 
-[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.6.6...HEAD
+[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jestatsio/reolens/compare/v0.6.11...v0.7.0
 [0.6.6]: https://github.com/jestatsio/reolens/compare/v0.6.5...v0.6.6
 [0.6.5]: https://github.com/jestatsio/reolens/compare/v0.6.4...v0.6.5
 [0.6.4]: https://github.com/jestatsio/reolens/compare/v0.6.3...v0.6.4

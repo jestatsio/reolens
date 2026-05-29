@@ -155,14 +155,17 @@ To deploy:
    git add CloudKit/schema.ckdb && git commit -m 'chore: snapshot CloudKit schema'
    ```
 
-3. Promote Development → Production:
+3. Deploy Development → Production. This is **Console-only**: the Xcode 26
+   `cktool` cannot write the Production schema (`import-schema` rejects the
+   production environment, and there's no clone/deploy subcommand).
 
    ```sh
-   Scripts/deploy-cloudkit-schema.sh promote
+   Scripts/deploy-cloudkit-schema.sh promote   # prints the Console steps
    ```
 
-   The script prompts for `y/N` because the deploy is a one-way write
-   to Production; recovery requires a counter-deploy.
+   In the CloudKit Console: Schema → "Deploy Schema Changes…" → Development
+   to Production → review the diff → Deploy. (One-way write to Production;
+   recovery requires a counter-deploy.)
 
 4. Verify in the CloudKit Console (Schema → Record Types →
    `MotionEvent` → toggle Production) that all six fields are
@@ -199,7 +202,10 @@ So adding a field requires either the Console or `cktool`:
    model the new line on the existing field entries.
 3. `Scripts/deploy-cloudkit-schema.sh push` — import the edited file
    back to Dev.
-4. `Scripts/deploy-cloudkit-schema.sh promote` — Dev → Production.
+4. Deploy Dev → Production in the **CloudKit Console** (Schema → Deploy
+   Schema Changes → Development to Production). `cktool` can't write the
+   Production schema, so this step is Console-only;
+   `Scripts/deploy-cloudkit-schema.sh promote` just prints the steps.
 
 ### 0.7.0 new record types: `HubStatus` and `CameraCredential`
 

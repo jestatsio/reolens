@@ -33,9 +33,10 @@
 #              itself can't seed Dev — this is the codepath that
 #              replaces the "build a dev-signed app and publish a
 #              record" loop.
-#   promote  — export Development, then import it into Production
-#              (cktool has no one-shot clone command). Validates first
-#              and refuses to run without an interactive y/N confirmation.
+#   promote  — print the CloudKit Console steps to deploy Development →
+#              Production. cktool CANNOT write the Production schema
+#              (import-schema rejects the production environment, and there
+#              is no clone/deploy command), so the deploy is Console-only.
 #   diff     — export Dev to a temp file and `diff` it against the
 #              committed CloudKit/schema.ckdb so you can see
 #              what would change if you ran `export` now.
@@ -67,7 +68,7 @@ Usage: Scripts/deploy-cloudkit-schema.sh <subcommand>
 Subcommands:
   export   Dump CloudKit Development schema to CloudKit/schema.ckdb
   push     Import the committed .ckdb into CloudKit Development
-  promote  Export Development schema, then import it into Production (requires confirmation)
+  promote  Print Console steps to deploy Development → Production (cktool can't write Prod)
   diff     Show diff between live Development schema and committed file
 
 Required env vars:
@@ -147,52 +148,33 @@ cmd_push() {
 }
 
 cmd_promote() {
-    require_cktool
     require_env
-    # cktool (Xcode 26) has no one-shot clone/promote command, so promotion
-    # is two steps: export the live Development schema, then import it into
-    # Production. `--validate` runs a pre-flight check before the write.
-    # Importing is additive — it adds/updates record types + fields and
-    # never deletes — so this safely lands new types (HubStatus,
-    # CameraCredential) without touching existing data.
-    #
-    # NOTE: this promotes whatever Development currently has. Seed Dev with
-    # the new record types first (CloudKit Console, or a Debug build that
-    # writes them) — see CloudKit/README.md — or they won't reach Prod.
-    local tmp
-    tmp="$(mktemp -t reolens-ckschema.XXXXXX)"
-    trap 'rm -f "$tmp"' EXIT
+    # cktool (Xcode 26) CANNOT write the Production schema. `import-schema
+    # --environment PRODUCTION` is rejected with "endpoint not applicable
+    # in the environment 'production'", and there is no clone/deploy/promote
+    # subcommand. The Development → Production deploy is Console-only — so
+    # this command guides that, rather than failing on an impossible write.
+    cat <<EOF
+cktool cannot deploy this container's schema to Production:
+  • import-schema rejects the production environment, and
+  • there is no clone/deploy/promote subcommand.
 
-    echo "Exporting current Development schema for $CKTOOL_CONTAINER ..."
-    xcrun cktool export-schema \
-        --team-id "$CKTOOL_TEAM_ID" \
-        --container-id "$CKTOOL_CONTAINER" \
-        --environment DEVELOPMENT \
-        --output-file "$tmp" \
-        || { echo "ERROR: cktool export-schema (DEVELOPMENT) failed." >&2; exit 3; }
+Deploy Development → Production in the CloudKit Console:
 
-    echo "About to import that schema into PRODUCTION:"
-    echo "  container:    $CKTOOL_CONTAINER"
-    echo "  team:         $CKTOOL_TEAM_ID"
-    echo "  source:       DEVELOPMENT (just exported)"
-    echo "  destination:  PRODUCTION"
-    echo
-    echo "This is a one-way write to Production. Recovery requires a counter-deploy."
-    read -r -p "Proceed? [y/N] " reply
-    case "$reply" in
-        y|Y|yes|YES) ;;
-        *) echo "Aborted."; exit 0 ;;
-    esac
+  1. https://icloud.developer.apple.com/dashboard
+  2. Container: $CKTOOL_CONTAINER  →  Schema
+  3. "Deploy Schema Changes…"  →  Development to Production
+  4. Review the diff — expect HubStatus + CameraCredential added, with
+     CameraCredential.password marked Encrypted and a Queryable recordName
+     index on both — then Deploy.
 
-    xcrun cktool import-schema \
-        --team-id "$CKTOOL_TEAM_ID" \
-        --container-id "$CKTOOL_CONTAINER" \
-        --environment PRODUCTION \
-        --validate \
-        --file "$tmp" \
-        || { echo "ERROR: cktool import-schema (PRODUCTION) failed." >&2; exit 3; }
-    echo "Schema promoted to Production."
-    echo "Verify in the CloudKit Console → Schema → Record Types → Production."
+If the diff is empty or missing the new types, Development isn't seeded
+yet: create them in the Console (Development env) or run a Debug build
+that writes them, then deploy. See CloudKit/README.md.
+
+To snapshot the current Development schema into the repo first:
+  Scripts/deploy-cloudkit-schema.sh export
+EOF
 }
 
 cmd_diff() {
