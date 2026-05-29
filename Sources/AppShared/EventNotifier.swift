@@ -385,19 +385,19 @@ public final class EventNotifier {
 
         // The local-category mute reason, if any. `.suppressedForLog`
         // is produced by `classify` when the user has turned off this
-        // device's per-category toggle (notifyPerTag). It suppresses the
-        // LOCAL banner only — the CloudKit relay is a separate channel,
-        // and the receiving device (iOS, via
-        // `AppDelegate.postLocalNotification`) applies its own
-        // per-category preferences before posting.
-        // 0.6.6 fix: the previous version short-circuited the entire
-        // notify() at the `.suppressedForLog` branch, silently
-        // disabling the relay whenever the Mac had any category
-        // muted — and Motion defaults to OFF, so every
-        // plain-motion event was being dropped before reaching
-        // CloudKit. iPhone subscribers consequently saw zero silent
-        // pushes from real motion even though the test-event button
-        // (which bypasses `notify()`) worked end-to-end.
+        // device's per-category toggle (notifyPerTag, incl. Motion).
+        //
+        // 0.8.3 — this gate now applies to the CloudKit relay too (see
+        // the relay branch below), not just the local banner. History:
+        // 0.6.6 deliberately decoupled them so a Mac muting a category
+        // (Motion defaults OFF) could still relay it to an iPhone that
+        // had the category on. But the iOS side can't honor "off" on the
+        // relay path: a relayed event arrives as an *alert* push, and the
+        // Notification Service Extension that runs before iOS shows the
+        // banner can only rewrite its content — it can't suppress it. So
+        // a category muted on BOTH devices still leaked a banner on iOS.
+        // Gating the publisher by category is the reliable fix — muting a
+        // category on the Mac now stops both its banner and its relay.
         let locallySuppressedReason: NotificationRecord.DeliveryStatus?
         if case .suppressedForLog(_, _, let reason) = classification {
             locallySuppressedReason = reason
@@ -407,15 +407,20 @@ public final class EventNotifier {
 
         let relayAllowed: Bool
         #if os(macOS)
-        // Relay to the user's other Apple devices via CloudKit IF
-        // the user has opted in. INDEPENDENT of this device's
-        // per-category notification toggles — the receiving device
-        // applies its own preferences. A Mac with the Motion category
-        // off can therefore still publish motion events that an iPhone
-        // with Motion on will surface as a banner. The shared
-        // throttle key still prevents a sustained motion burst from
-        // flooding the relay.
-        relayAllowed = MotionEventRelaySettings.publisherEnabled
+        // Relay to the user's other Apple devices via CloudKit IF the
+        // user opted in (publisherEnabled) AND this Mac isn't muting the
+        // event's category (`relayEligible`). Muting a category here —
+        // e.g. Motion, which defaults off — now stops it being relayed,
+        // so "off on the Mac" means "not pushed to iPhone/iPad"; the AI
+        // categories you leave on still relay.
+        //
+        // The relay stays INDEPENDENT of this Mac's OS permission and
+        // master-enable state — those gate only the local banner, so a
+        // Mac with notifications muted at the OS level keeps relaying.
+        // The shared throttle key still prevents a sustained motion
+        // burst from flooding the relay.
+        relayAllowed = Self.relayEligible(classification: classification)
+            && MotionEventRelaySettings.publisherEnabled
             && consumeRelayCooldown(for: throttleKey)
         #else
         relayAllowed = false
@@ -869,6 +874,23 @@ public final class EventNotifier {
         case .motionStop, .other:
             return .ignored
         }
+    }
+
+    /// 0.8.3 — relay-eligibility gate for the macOS CloudKit publisher.
+    /// True only for a `.composed` classification, i.e. an event whose
+    /// category the user has left ON for this device. A `.suppressedForLog`
+    /// result (per-category mute, incl. Motion) or `.ignored`
+    /// (non-notifiable kind) is NOT relayed, so muting a category on the
+    /// Mac stops it being pushed to the user's other Apple devices.
+    ///
+    /// Deliberately keyed off `classify`'s result, not the OS permission
+    /// or master-enable state — those gate only the local banner (see the
+    /// relay branch in `notify(...)`). Pulled out as a named function so
+    /// the publisher gate is one unit-testable source of truth rather than
+    /// an inline boolean that could silently drift from `classify`.
+    static func relayEligible(classification: FormatResult) -> Bool {
+        if case .composed = classification { return true }
+        return false
     }
 
     /// Back-compat shim used by the existing `notify(...)` body until

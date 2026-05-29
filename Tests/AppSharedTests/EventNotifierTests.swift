@@ -266,4 +266,44 @@ struct EventNotifierCategoryGatingTests {
         #expect(EventNotifier.defaultNotify(.vehicle) == true)
         #expect(EventNotifier.defaultNotify(.pet) == true)
     }
+
+    /// 0.8.3 — the macOS CloudKit relay now honors this Mac's own
+    /// per-category mute (the `relayEligible` publisher gate in
+    /// `notify(...)`). Before this, the relay was decoupled from the
+    /// category toggles, so a category muted on both the Mac and the
+    /// iPhone still leaked a banner on iOS: the relay arrives as an alert
+    /// push and the iOS Notification Service Extension can only rewrite
+    /// content, never suppress it. Gating the publisher is the fix.
+    @Test("A muted category is not relay-eligible; live categories still relay")
+    func mutedCategoryNotRelayed() {
+        let notifier = EventNotifier.shared
+        let motion = BaichuanEvent(channelID: 0, kind: .motionStart, raw: "")
+        let person = BaichuanEvent(channelID: 0, kind: .ai("person"), raw: "")
+        // The reported config: Motion muted, every AI category on. The
+        // Mac must stop relaying motion while still relaying AI events.
+        var map = Dictionary(uniqueKeysWithValues: DetectionType.allCases.map { ($0, true) })
+        map[.motion] = false
+        withCategories(map) {
+            let mutedMotion = notifier.classify(event: motion, cameraName: "Test")
+            let livePerson = notifier.classify(event: person, cameraName: "Test")
+            #expect(EventNotifier.relayEligible(classification: mutedMotion) == false)
+            #expect(EventNotifier.relayEligible(classification: livePerson) == true)
+        }
+        // Turning Motion back on makes it relay-eligible again.
+        withCategories([.motion: true]) {
+            let liveMotion = notifier.classify(event: motion, cameraName: "Test")
+            #expect(EventNotifier.relayEligible(classification: liveMotion) == true)
+        }
+    }
+
+    /// A non-notifiable kind (`.ignored`) is never relayed — guards the
+    /// `relayEligible` switch against accidentally treating `.ignored` as
+    /// eligible if the enum gains cases.
+    @Test("Non-notifiable kinds are not relay-eligible")
+    func ignoredKindNotRelayed() {
+        let notifier = EventNotifier.shared
+        let stop = BaichuanEvent(channelID: 0, kind: .motionStop, raw: "")
+        let result = notifier.classify(event: stop, cameraName: "Test")
+        #expect(EventNotifier.relayEligible(classification: result) == false)
+    }
 }

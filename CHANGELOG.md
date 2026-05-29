@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.3] — 2026-05-29
+
+### Fixed
+
+- **A category muted on the Mac is no longer relayed to your other Apple
+  devices.** Turning a category off (e.g. Motion) silenced the Mac's own
+  banner but still published the event to CloudKit, so an iPhone/iPad kept
+  showing it — even with the same category muted there. That relayed event
+  arrives as an *alert* push, and the iOS Notification Service Extension
+  that runs before the banner appears can only rewrite its content, never
+  suppress it, so the receiver-side mute couldn't catch it. The Mac
+  publisher now gates the relay by its own per-category toggles, the same
+  way it gates the local banner — mute Motion on the Mac and it stops
+  pushing to every device.
+
+### Changed
+
+- The CloudKit relay only pushes the event types enabled on the Mac. With
+  Motion off by default, enabling "Relay motion events to my other Apple
+  devices" relays your AI categories; turn Motion on under Notifications →
+  Event types to relay plain motion too. (Settings copy updated to match.)
+
 ## [0.8.2] — 2026-05-29
 
 ### Added
