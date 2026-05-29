@@ -41,7 +41,7 @@ targets:
       path: Resources/Info.plist
       properties:
         CFBundleDisplayName: Reolens
-        CFBundleShortVersionString: "0.7.0"
+        CFBundleShortVersionString: "0.8.0"
         CFBundleVersion: "18"
         # iOS 11+ requires apps using asset-catalog icons to also
         # declare CFBundleIconName so the OS / App Store knows which
@@ -160,7 +160,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens
         PRODUCT_NAME: Reolens
-        MARKETING_VERSION: "0.7.0"
+        MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "19"
         # Same Apple Developer team as the macOS app. Xcode's automatic
         # signing uses this to fetch / create the Apple Distribution
@@ -214,7 +214,7 @@ targets:
       path: Widgets/Info.plist
       properties:
         CFBundleDisplayName: Reolens Widgets
-        CFBundleShortVersionString: "0.7.0"
+        CFBundleShortVersionString: "0.8.0"
         CFBundleVersion: "18"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -227,7 +227,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.Widgets
         PRODUCT_NAME: ReolensiOSWidgets
-        MARKETING_VERSION: "0.7.0"
+        MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -285,7 +285,7 @@ targets:
       path: NotificationService/Info.plist
       properties:
         CFBundleDisplayName: Reolens Notification Service
-        CFBundleShortVersionString: "0.7.0"
+        CFBundleShortVersionString: "0.8.0"
         CFBundleVersion: "18"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
@@ -303,7 +303,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.NotificationService
         PRODUCT_NAME: ReolensiOSNotificationService
-        MARKETING_VERSION: "0.7.0"
+        MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -361,7 +361,7 @@ targets:
       path: TVOS/Info.plist
       properties:
         CFBundleDisplayName: Reolens
-        CFBundleShortVersionString: "0.7.0"
+        CFBundleShortVersionString: "0.8.0"
         CFBundleVersion: "18"
     entitlements:
       path: TVOS/ReolensTVOS.entitlements
@@ -377,7 +377,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.tvOS
         PRODUCT_NAME: Reolens
-        MARKETING_VERSION: "0.7.0"
+        MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -456,7 +456,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens
         PRODUCT_NAME: Reolens
-        MARKETING_VERSION: "0.7.0"
+        MARKETING_VERSION: "0.8.0"
         CURRENT_PROJECT_VERSION: "19"
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
