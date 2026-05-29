@@ -10,26 +10,19 @@
     a matching provisioning profile fails to launch with
     "Launchd job spawn failed" (NSPOSIXErrorDomain Code=163).
 
-    Production DMG builds still use App/Reolens.entitlements, which
-    has the full sandbox + iCloud + group entitlements. Those work
-    because the release pipeline embeds a Developer ID provisioning
-    profile alongside the signature, which AMFI validates against.
+    So local ad-hoc builds intentionally ship with NO entitlements
+    (empty dict): the dev binary has the same filesystem access as
+    any user-owned process, and iCloud Drive sync falls back to the
+    local Application Support path (each dev build sees only its own
+    camera list). Network client + microphone access just work —
+    those capabilities don't need entitlements outside the sandbox.
 
-    Trade-offs for local dev with these slim entitlements:
-      - No app sandbox: the dev binary has the same filesystem
-        access as any user-owned process. Fine for testing.
-      - No iCloud Drive sync: cameras.json reads/writes to the
-        local Application Support fallback path, not the ubiquity
-        container. Each dev build sees only its own camera list.
-      - Network client + microphone access just work (those
-        capabilities don't need entitlements outside the sandbox).
-      - Library validation is disabled so Sparkle.framework
-        (signed by the Sparkle Project, not us) loads correctly
-        under hardened runtime.
+    The shipping App Store build does NOT use this file. It uses
+    App/Reolens.appstore.entitlements, which carries the full
+    sandbox + iCloud + CloudKit + App Group entitlements; AMFI
+    validates those against the App Store provisioning profile that
+    xcodebuild embeds at archive time.
 -->
 <plist version="1.0">
-<dict>
-    <key>com.apple.security.cs.disable-library-validation</key>
-    <true/>
-</dict>
+<dict/>
 </plist>

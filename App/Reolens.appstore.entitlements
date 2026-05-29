@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Mac App Store entitlements for the ReolensMac Xcode target
+    (AppiOS/project.yml). Distinct from App/Reolens.entitlements
+    (Developer ID / local-dev) in two deliberate ways:
+
+      • NO com.apple.security.cs.disable-library-validation — that key
+        existed only to load the embedded Sparkle.framework, which the
+        App Store build does not ship (the App Store updates the app).
+      • NO manual com.apple.application-identifier — Xcode injects it
+        from the App Store provisioning profile at signing time. Setting
+        it by hand (as the codesign'd DMG had to) would risk a mismatch.
+
+    Everything the app actually uses at runtime is kept: the sandbox,
+    outbound network (RTSP / HTTP to LAN cameras), microphone (two-way
+    talk), user-selected file read/write (Save Recording…), the shared
+    App Group container (group.com.reolens.Reolens — see
+    AppShared/SharedContainer.swift), and the iCloud container + CloudKit
+    + key-value store shared with the iOS/tvOS apps under one App Store
+    Connect record.
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+    <key>com.apple.security.application-groups</key>
+    <array>
+        <string>group.com.reolens.Reolens</string>
+    </array>
+    <key>com.apple.developer.icloud-container-identifiers</key>
+    <array>
+        <string>iCloud.com.reolens.Reolens</string>
+    </array>
+    <key>com.apple.developer.ubiquity-container-identifiers</key>
+    <array>
+        <string>iCloud.com.reolens.Reolens</string>
+    </array>
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudDocuments</string>
+        <string>CloudKit</string>
+    </array>
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>5M9UT7VQ8Q.com.reolens.Reolens</string>
+</dict>
+</plist>

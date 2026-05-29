@@ -306,15 +306,16 @@ Sources/
   ReolinkStreaming/      — RTSP / VideoToolbox / H.264 + H.265 / SDP
   ReolinkBaichuan/       — port-9000 protocol (talkback, push, alarms)
 Tests/                   — ~340 tests across 68 suites
-Scripts/                 — build, sign, notarize, DMG, icon generation,
-                           coverage gate, version-check gate
+Scripts/                 — build, sign, App Store (TestFlight) upload,
+                           icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),
                            RELEASE.md + IOS_RELEASE.md runbooks
 dist/homebrew/reolens.rb — Homebrew cask formula template
 .github/workflows/
   ci.yml                 — build + test + smoke launch + coverage gate
                            + iOS XCUITest job
-  release.yml            — on tag push: build → notarize → DMG → release
+  release.yml            — on tag push: archive + upload iOS & macOS
+                           to App Store Connect / TestFlight
 ```
 
 ## Development

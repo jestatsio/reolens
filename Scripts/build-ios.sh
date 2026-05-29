@@ -13,7 +13,7 @@
 #
 # Both archive and upload assume:
 #   - You have signed in to your Apple ID in Xcode (Settings → Accounts).
-#   - The bundle ID `com.reolens.Reolens.iOS` exists in App Store Connect
+#   - The bundle ID `com.reolens.Reolens` exists in App Store Connect
 #     (https://appstoreconnect.apple.com/apps → "+" → New App).
 #   - Xcode's automatic signing has access to your team (5M9UT7VQ8Q).
 
@@ -278,7 +278,7 @@ NSE_PROFILE_UUID=""
 if [[ -n "${AC_API_KEY_ID:-}" && -n "${AC_API_KEY_P8_PATH:-}" ]]; then
     echo "==> Ensuring App Store provisioning profile via ASC API (main app)"
     export PLATFORM=IOS
-    export IOS_BUNDLE_ID="${IOS_BUNDLE_ID:-com.reolens.Reolens.iOS}"
+    export IOS_BUNDLE_ID="${IOS_BUNDLE_ID:-com.reolens.Reolens}"
     export PROFILE_NAME="${PROFILE_NAME:-Reolens iOS App Store}"
     HELPER_OUT="$(python3 "${REPO_ROOT}/Scripts/asc_ensure_profile.py")"
     PROFILE_NAME="$(printf '%s\n' "${HELPER_OUT}" | sed -n '1p')"
@@ -286,7 +286,7 @@ if [[ -n "${AC_API_KEY_ID:-}" && -n "${AC_API_KEY_P8_PATH:-}" ]]; then
     echo "    using main-app profile: ${PROFILE_NAME} (${PROFILE_UUID})"
 
     # 0.5.0 — the widget extension target has its own bundle id
-    # (com.reolens.Reolens.iOS.Widgets) and Apple requires a
+    # (com.reolens.Reolens.Widgets) and Apple requires a
     # SEPARATE provisioning profile per bundle id. Run the helper
     # again with PLATFORM=IOS_WIDGETS so the widget extension gets
     # its own profile registered/created/installed alongside the
@@ -297,7 +297,7 @@ if [[ -n "${AC_API_KEY_ID:-}" && -n "${AC_API_KEY_P8_PATH:-}" ]]; then
     echo "==> Ensuring App Store provisioning profile via ASC API (widget extension)"
     SAVED_PROFILE_NAME="${PROFILE_NAME}"
     export PLATFORM=IOS_WIDGETS
-    export IOS_WIDGETS_BUNDLE_ID="${IOS_WIDGETS_BUNDLE_ID:-com.reolens.Reolens.iOS.Widgets}"
+    export IOS_WIDGETS_BUNDLE_ID="${IOS_WIDGETS_BUNDLE_ID:-com.reolens.Reolens.Widgets}"
     unset PROFILE_NAME
     WIDGETS_HELPER_OUT="$(python3 "${REPO_ROOT}/Scripts/asc_ensure_profile.py")"
     WIDGETS_PROFILE_NAME="$(printf '%s\n' "${WIDGETS_HELPER_OUT}" | sed -n '1p')"
@@ -308,7 +308,7 @@ if [[ -n "${AC_API_KEY_ID:-}" && -n "${AC_API_KEY_P8_PATH:-}" ]]; then
 
     # 0.6.8 — Notification Service Extension target (NSE). Same
     # rationale as widgets above: distinct bundle id
-    # (com.reolens.Reolens.iOS.NotificationService) requires a
+    # (com.reolens.Reolens.NotificationService) requires a
     # distinct provisioning profile. The App ID must already exist
     # in the developer portal with iCloud + App Groups capabilities
     # configured — `asc_ensure_profile.py` can't create bundle ids
@@ -321,7 +321,7 @@ if [[ -n "${AC_API_KEY_ID:-}" && -n "${AC_API_KEY_P8_PATH:-}" ]]; then
     echo "==> Ensuring App Store provisioning profile via ASC API (notification service extension)"
     SAVED_PROFILE_NAME="${PROFILE_NAME}"
     export PLATFORM=IOS_NOTIFICATION_SERVICE
-    export IOS_NOTIFICATION_SERVICE_BUNDLE_ID="${IOS_NOTIFICATION_SERVICE_BUNDLE_ID:-com.reolens.Reolens.iOS.NotificationService}"
+    export IOS_NOTIFICATION_SERVICE_BUNDLE_ID="${IOS_NOTIFICATION_SERVICE_BUNDLE_ID:-com.reolens.Reolens.NotificationService}"
     unset PROFILE_NAME
     NSE_HELPER_OUT="$(python3 "${REPO_ROOT}/Scripts/asc_ensure_profile.py")"
     NSE_PROFILE_NAME="$(printf '%s\n' "${NSE_HELPER_OUT}" | sed -n '1p')"
@@ -419,7 +419,7 @@ echo "==> Writing ExportOptions.plist"
 # otherwise xcodebuild re-signs the .ipa with whatever it would have
 # picked automatically (often: nothing, since automatic signing fails
 # for the same reason archive does).
-EXPORT_BUNDLE_ID="${IOS_BUNDLE_ID:-com.reolens.Reolens.iOS}"
+EXPORT_BUNDLE_ID="${IOS_BUNDLE_ID:-com.reolens.Reolens}"
 EXPORT_PROFILE="${PROFILE_UUID:-${PROFILE_NAME:-Reolens iOS App Store}}"
 # 0.5.0 — emit a second `<key>...</key><string>...</string>` pair
 # for the widget extension target so xcodebuild's `-exportArchive`
@@ -427,7 +427,7 @@ EXPORT_PROFILE="${PROFILE_UUID:-${PROFILE_NAME:-Reolens iOS App Store}}"
 # Without the widgets entry, xcodebuild falls back to automatic
 # signing for the widget extension (which fails on CI for the same
 # "no devices" reason the main app does).
-WIDGETS_BUNDLE_ID="${IOS_WIDGETS_BUNDLE_ID:-com.reolens.Reolens.iOS.Widgets}"
+WIDGETS_BUNDLE_ID="${IOS_WIDGETS_BUNDLE_ID:-com.reolens.Reolens.Widgets}"
 WIDGETS_PROFILE_FOR_EXPORT="${WIDGETS_PROFILE_UUID:-${WIDGETS_PROFILE_NAME:-Reolens iOS Widgets App Store}}"
 # 0.6.8 — emit a third <key>...</key><string>...</string> pair for
 # the Notification Service Extension so xcodebuild's -exportArchive
@@ -435,7 +435,7 @@ WIDGETS_PROFILE_FOR_EXPORT="${WIDGETS_PROFILE_UUID:-${WIDGETS_PROFILE_NAME:-Reol
 # export falls back to automatic signing for the NSE (which fails
 # on CI for the same "no devices" reason the main app and widgets
 # would).
-NSE_BUNDLE_ID="${IOS_NOTIFICATION_SERVICE_BUNDLE_ID:-com.reolens.Reolens.iOS.NotificationService}"
+NSE_BUNDLE_ID="${IOS_NOTIFICATION_SERVICE_BUNDLE_ID:-com.reolens.Reolens.NotificationService}"
 NSE_PROFILE_FOR_EXPORT="${NSE_PROFILE_UUID:-${NSE_PROFILE_NAME:-Reolens iOS Notification Service App Store}}"
 cat > "${EXPORT_OPTIONS}" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

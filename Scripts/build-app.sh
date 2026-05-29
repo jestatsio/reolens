@@ -109,21 +109,10 @@ echo "==> Assembling ${APP_DIR}"
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS"
 mkdir -p "${APP_DIR}/Contents/Resources"
-mkdir -p "${APP_DIR}/Contents/Frameworks"
 
 cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/Reolens"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 cp "${ICON_SRC}"   "${APP_DIR}/Contents/Resources/AppIcon.icns"
-
-# Embed the Reolens Hub LaunchAgent (0.7.0). `SMAppService.agent` looks
-# for the plist inside the sealed bundle at Contents/Library/LaunchAgents/.
-# Copy it before the final codesign so the app signature covers it; the
-# plist is not a Mach-O, so it needs no separate signing. The agent
-# relaunches this same binary with `--hub` for headless always-on
-# listening — see App/Hub/HubController.swift.
-mkdir -p "${APP_DIR}/Contents/Library/LaunchAgents"
-cp "${REPO_ROOT}/App/Hub/com.reolens.Reolens.Hub.plist" \
-   "${APP_DIR}/Contents/Library/LaunchAgents/com.reolens.Reolens.Hub.plist"
 
 # Embed a MAC_APP_DIRECT provisioning profile when we're signing with a
 # real Developer ID identity AND ASC API credentials are present. This
@@ -171,67 +160,6 @@ if [[ "${SIGNING_IDENTITY}" != "-" ]]; then
     cp "${EMBED_PROFILE_PATH}" "${APP_DIR}/Contents/embedded.provisionprofile"
     echo "    embedded: ${EMBED_PROFILE_PATH##*/} (profile: ${EMBED_PROFILE_NAME})"
 fi
-
-# Embed Sparkle.framework. The SwiftPM artifact cache stores the resolved
-# XCFramework under .build/artifacts/. We pick the macOS slice
-# (`macos-arm64_x86_64`) and copy its `Sparkle.framework` into
-# Contents/Frameworks/. The framework's own internal layout (XPC services,
-# Autoupdate helper, embedded Info.plist) is preserved as-is.
-SPARKLE_XCFW=$(find "${REPO_ROOT}/.build/artifacts" -type d -name 'Sparkle.xcframework' | head -n 1 || true)
-if [[ -z "${SPARKLE_XCFW}" ]]; then
-    echo "Sparkle.xcframework not found in .build/artifacts. Did `swift build` resolve dependencies?" >&2
-    exit 1
-fi
-SPARKLE_FRAMEWORK="${SPARKLE_XCFW}/macos-arm64_x86_64/Sparkle.framework"
-if [[ ! -d "${SPARKLE_FRAMEWORK}" ]]; then
-    # Fallback: glob for any macos-* slice (Sparkle has used slightly
-    # different naming across releases).
-    SPARKLE_FRAMEWORK=$(find "${SPARKLE_XCFW}" -type d -name 'Sparkle.framework' -path '*macos*' | head -n 1 || true)
-fi
-if [[ -z "${SPARKLE_FRAMEWORK}" || ! -d "${SPARKLE_FRAMEWORK}" ]]; then
-    echo "macOS Sparkle.framework not found inside ${SPARKLE_XCFW}" >&2
-    exit 1
-fi
-
-echo "==> Embedding Sparkle.framework from ${SPARKLE_FRAMEWORK#${REPO_ROOT}/}"
-# `cp -R` preserves the framework's internal symlinks (Versions/B → Current).
-cp -R "${SPARKLE_FRAMEWORK}" "${APP_DIR}/Contents/Frameworks/"
-
-# SwiftPM's linker only adds @loader_path and the toolchain rpath to the
-# main binary; it doesn't know the .app layout. Inject the conventional
-# `@executable_path/../Frameworks` rpath so dyld finds the embedded
-# Sparkle.framework at runtime. Idempotent: if the rpath is already
-# present, install_name_tool prints a warning we suppress.
-install_name_tool -add_rpath "@executable_path/../Frameworks" \
-    "${APP_DIR}/Contents/MacOS/Reolens" 2>/dev/null || true
-
-# Sign every nested bundle inside Sparkle.framework before signing the
-# outer framework. Apple's codesign requires inside-out signing — XPC
-# services first, helpers next, framework last, app last. `--deep` would
-# do this for us but is deprecated; iterating explicitly is the
-# forward-compatible path.
-sign_one() {
-    local target="$1"
-    codesign --force \
-        --sign "${SIGNING_IDENTITY}" \
-        --options runtime \
-        ${TIMESTAMP_FLAG} \
-        "${target}" >/dev/null
-}
-
-SPARKLE_IN_APP="${APP_DIR}/Contents/Frameworks/Sparkle.framework"
-# Sign every Mach-O helper Sparkle ships inside the framework.
-while IFS= read -r helper; do
-    sign_one "${helper}"
-done < <(find "${SPARKLE_IN_APP}" -type f \
-    \( -name 'Autoupdate' -o -name 'Updater' -o -name 'Installer' \) \
-    -perm -u+x 2>/dev/null || true)
-# Sign the XPC services bundled with Sparkle (Downloader, Installer).
-while IFS= read -r xpc; do
-    sign_one "${xpc}"
-done < <(find "${SPARKLE_IN_APP}" -type d -name '*.xpc' 2>/dev/null || true)
-# Sign the framework itself (no entitlements — frameworks don't carry them).
-sign_one "${SPARKLE_IN_APP}"
 
 echo "==> Signing app with: ${SIGN_LABEL}"
 codesign --force \

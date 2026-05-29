@@ -28,7 +28,7 @@
 	<key>WKApplication</key>
 	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
-	<string>com.reolens.Reolens.iOS</string>
+	<string>com.reolens.Reolens</string>
 	<key>WKWatchOnly</key>
 	<false/>
 </dict>

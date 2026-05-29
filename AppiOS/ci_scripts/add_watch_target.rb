@@ -19,7 +19,7 @@ require 'xcodeproj'
 
 PROJECT_PATH = File.expand_path(File.join(__dir__, '..', 'ReolensiOS.xcodeproj'))
 TARGET_NAME  = 'ReolensWatch'
-BUNDLE_ID    = 'com.reolens.Reolens.iOS.watchkitapp'
+BUNDLE_ID    = 'com.reolens.Reolens.watchkitapp'
 TEAM_ID      = '5M9UT7VQ8Q'
 SOURCE_DIR   = 'Watch'  # relative to AppiOS/
 WATCH_SDK    = 'watchos'

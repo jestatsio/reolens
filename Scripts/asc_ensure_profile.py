@@ -120,6 +120,19 @@ FLAVORS: dict[str, Flavor] = {
         bundle_platform="MAC_OS",
         default_profile_name="Reolens macOS Developer ID",
     ),
+    # Mac App Store / TestFlight. Same unified "Apple Distribution" cert
+    # (DISTRIBUTION) the iOS App Store flow uses signs the .app; the .pkg
+    # installer is signed separately with a "3rd Party Mac Developer
+    # Installer" cert (see Scripts/build-mac.sh). Used by build-mac.sh to
+    # ship the macOS app under the SAME App Store Connect record as iOS.
+    "MAC_APP_STORE": Flavor(
+        platform_label="Mac App Store",
+        profile_type="MAC_APP_STORE",
+        cert_type="DISTRIBUTION",
+        bundle_env_var="MAC_APP_BUNDLE_ID",
+        bundle_platform="MAC_OS",
+        default_profile_name="Reolens Mac App Store",
+    ),
 }
 
 
@@ -450,13 +463,13 @@ def parse_uuid(raw: bytes) -> str:
 def main() -> int:
     platform = (os.environ.get("PLATFORM") or "IOS").upper()
     if platform not in FLAVORS:
-        sys.exit(f"error: PLATFORM must be IOS or MAC, got {platform!r}")
+        sys.exit(f"error: PLATFORM must be one of {sorted(FLAVORS)}, got {platform!r}")
     flavor = FLAVORS[platform]
 
     bundle_id = (
         os.environ.get(flavor.bundle_env_var)
         or os.environ.get("IOS_BUNDLE_ID")  # back-compat for the iOS-only call sites
-        or "com.reolens.Reolens.iOS"
+        or "com.reolens.Reolens"
     )
     profile_name = os.environ.get("PROFILE_NAME") or flavor.default_profile_name
 
