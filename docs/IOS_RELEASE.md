@@ -4,8 +4,13 @@ How Reolens for iPad/iPhone ships to TestFlight (and, later, the App Store).
 
 ## One-time setup in App Store Connect
 
+> As of 0.8.0, iOS shares **one multiplatform App Store Connect record with
+> macOS** at bundle id `com.reolens.Reolens` (the `.iOS` suffix is gone). The
+> shared record is created once — see [MAC_RELEASE.md](MAC_RELEASE.md). The
+> steps below register the iOS bundle IDs + capabilities and confirm the key.
+
 The CI workflow can do everything from this point on, but App Store Connect
-itself needs three one-time setups that only you can do (Apple requires a
+itself needs these one-time setups that only you can do (Apple requires a
 human at the keyboard for these):
 
 ### 1. Register the bundle ID
@@ -13,7 +18,7 @@ human at the keyboard for these):
 [developer.apple.com → Certificates, IDs & Profiles → Identifiers](https://developer.apple.com/account/resources/identifiers/list)
 
 - Click **+** → **App IDs** → **App**.
-- Bundle ID: **Explicit** → `com.reolens.Reolens.iOS`
+- Bundle ID: **Explicit** → `com.reolens.Reolens`
 - Description: `Reolens for iPad/iPhone`
 - Capabilities: enable **iCloud** (then click Edit and add the container
   `iCloud.com.reolens.Reolens`). That container should already exist from
@@ -21,8 +26,14 @@ human at the keyboard for these):
   Also enable **App Groups** and add `group.com.reolens.Reolens` (0.5.0
   widget / Live Activity extensions require this to share the
   on-device snapshot + recent-events store with the main app).
+- Enable **Push Notifications** — the iOS app declares `aps-environment`
+  for the CloudKit silent-push motion relay. Easy to miss now that this
+  App ID is shared with the Mac (which doesn't use push); without it the
+  iOS archive fails with *"doesn't include the aps-environment
+  entitlement"*. After enabling it, delete any stale `Reolens iOS App
+  Store…` profiles so CI regenerates them with the capability.
 - **Widget extension bundle ID:** also register
-  `com.reolens.Reolens.iOS.Widgets` as a separate App ID
+  `com.reolens.Reolens.Widgets` as a separate App ID
   with the **App Groups** capability set to the same
   `group.com.reolens.Reolens`. CI's `xcodegen generate` step writes
   the widget target into the Xcode project; the registration here
@@ -40,12 +51,13 @@ profiles.
 
 [appstoreconnect.apple.com → My Apps → + → New App](https://appstoreconnect.apple.com/apps)
 
-- Platform: **iOS**
+- Platforms: **iOS + macOS** — this is the shared multiplatform record
+  (see [MAC_RELEASE.md](MAC_RELEASE.md)); you only create it once.
 - Name: `Reolens` (must match `CFBundleDisplayName` in
   [`AppiOS/project.yml`](../AppiOS/project.yml))
 - Primary Language: English (U.S.)
-- Bundle ID: `com.reolens.Reolens.iOS` (the one you just registered)
-- SKU: `com.reolens.Reolens.iOS` (just match the bundle ID)
+- Bundle ID: `com.reolens.Reolens` (the one you just registered)
+- SKU: `com.reolens.Reolens` (just match the bundle ID)
 - User Access: Full Access
 
 Save. You don't need to fill in App Store metadata yet — TestFlight uploads
@@ -92,12 +104,13 @@ git tag v0.2.0
 git push --tags
 ```
 
-This fires `.github/workflows/release.yml`, which runs two parallel jobs:
+This fires `.github/workflows/release.yml`, which runs three jobs:
 
-- **`release`** — builds the Mac app, notarizes, builds the DMG, publishes
-  the GitHub Release + appcast.
+- **`mac-testflight`** — archives the macOS app and uploads it to the Mac
+  App Store / TestFlight (see [MAC_RELEASE.md](MAC_RELEASE.md)).
 - **`ios-testflight`** — regenerates the iOS Xcode project, archives,
-  exports an IPA, and uploads to App Store Connect.
+  exports an IPA, and uploads to TestFlight.
+- **`github-release`** — publishes the GitHub Release once both succeed.
 
 Both use the same `AC_API_KEY_*` secrets — they're already configured.
 The iOS job bumps `CURRENT_PROJECT_VERSION` to `${{ github.run_number }}`
@@ -125,7 +138,7 @@ the release if they diverge (AGENTS.md §13).
 
 | Symptom | Likely cause |
 |---|---|
-| `No profiles for 'com.reolens.Reolens.iOS' were found` | Bundle ID not registered in developer.apple.com (step 1). |
+| `No profiles for 'com.reolens.Reolens' were found` | Bundle ID not registered in developer.apple.com (step 1). |
 | `Apple Distribution: Eric Hare (5M9UT7VQ8Q) is missing` | First archive — let Xcode/altool create it via `-allowProvisioningUpdates`. |
 | `The bundle version must be higher than the previously uploaded version` | Bump `CURRENT_PROJECT_VERSION` (local script) — CI does this automatically. |
 | `An App Store Connect API key with provided key ID does not exist` | Check `AC_API_KEY_ID` / `AC_API_ISSUER_ID` and that the .p8 file matches. |

@@ -42,7 +42,7 @@ targets:
       properties:
         CFBundleDisplayName: Reolens
         CFBundleShortVersionString: "0.8.0"
-        CFBundleVersion: "18"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # iOS 11+ requires apps using asset-catalog icons to also
         # declare CFBundleIconName so the OS / App Store knows which
         # icon set to consult at runtime. Without this key, ASC's
@@ -215,7 +215,7 @@ targets:
       properties:
         CFBundleDisplayName: Reolens Widgets
         CFBundleShortVersionString: "0.8.0"
-        CFBundleVersion: "18"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:
@@ -286,7 +286,7 @@ targets:
       properties:
         CFBundleDisplayName: Reolens Notification Service
         CFBundleShortVersionString: "0.8.0"
-        CFBundleVersion: "18"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
           NSExtensionPrincipalClass: "$(PRODUCT_MODULE_NAME).NotificationService"
@@ -362,7 +362,7 @@ targets:
       properties:
         CFBundleDisplayName: Reolens
         CFBundleShortVersionString: "0.8.0"
-        CFBundleVersion: "18"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
     entitlements:
       path: TVOS/ReolensTVOS.entitlements
       properties:
