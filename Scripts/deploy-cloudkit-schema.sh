@@ -33,8 +33,9 @@
 #              itself can't seed Dev — this is the codepath that
 #              replaces the "build a dev-signed app and publish a
 #              record" loop.
-#   promote  — clone Development → Production via cktool. Refuses
-#              to run without an interactive y/N confirmation.
+#   promote  — export Development, then import it into Production
+#              (cktool has no one-shot clone command). Validates first
+#              and refuses to run without an interactive y/N confirmation.
 #   diff     — export Dev to a temp file and `diff` it against the
 #              committed CloudKit/schema.ckdb so you can see
 #              what would change if you ran `export` now.
@@ -66,7 +67,7 @@ Usage: Scripts/deploy-cloudkit-schema.sh <subcommand>
 Subcommands:
   export   Dump CloudKit Development schema to CloudKit/schema.ckdb
   push     Import the committed .ckdb into CloudKit Development
-  promote  Clone Development schema to Production (requires confirmation)
+  promote  Export Development schema, then import it into Production (requires confirmation)
   diff     Show diff between live Development schema and committed file
 
 Required env vars:
@@ -148,10 +149,32 @@ cmd_push() {
 cmd_promote() {
     require_cktool
     require_env
-    echo "About to clone schema:"
+    # cktool (Xcode 26) has no one-shot clone/promote command, so promotion
+    # is two steps: export the live Development schema, then import it into
+    # Production. `--validate` runs a pre-flight check before the write.
+    # Importing is additive — it adds/updates record types + fields and
+    # never deletes — so this safely lands new types (HubStatus,
+    # CameraCredential) without touching existing data.
+    #
+    # NOTE: this promotes whatever Development currently has. Seed Dev with
+    # the new record types first (CloudKit Console, or a Debug build that
+    # writes them) — see CloudKit/README.md — or they won't reach Prod.
+    local tmp
+    tmp="$(mktemp -t reolens-ckschema.XXXXXX)"
+    trap 'rm -f "$tmp"' EXIT
+
+    echo "Exporting current Development schema for $CKTOOL_CONTAINER ..."
+    xcrun cktool export-schema \
+        --team-id "$CKTOOL_TEAM_ID" \
+        --container-id "$CKTOOL_CONTAINER" \
+        --environment DEVELOPMENT \
+        --output-file "$tmp" \
+        || { echo "ERROR: cktool export-schema (DEVELOPMENT) failed." >&2; exit 3; }
+
+    echo "About to import that schema into PRODUCTION:"
     echo "  container:    $CKTOOL_CONTAINER"
     echo "  team:         $CKTOOL_TEAM_ID"
-    echo "  source:       DEVELOPMENT"
+    echo "  source:       DEVELOPMENT (just exported)"
     echo "  destination:  PRODUCTION"
     echo
     echo "This is a one-way write to Production. Recovery requires a counter-deploy."
@@ -160,12 +183,14 @@ cmd_promote() {
         y|Y|yes|YES) ;;
         *) echo "Aborted."; exit 0 ;;
     esac
-    xcrun cktool clone-schema \
+
+    xcrun cktool import-schema \
         --team-id "$CKTOOL_TEAM_ID" \
         --container-id "$CKTOOL_CONTAINER" \
-        --source-environment DEVELOPMENT \
-        --destination-environment PRODUCTION \
-        || { echo "ERROR: cktool clone-schema failed." >&2; exit 3; }
+        --environment PRODUCTION \
+        --validate \
+        --file "$tmp" \
+        || { echo "ERROR: cktool import-schema (PRODUCTION) failed." >&2; exit 3; }
     echo "Schema promoted to Production."
     echo "Verify in the CloudKit Console → Schema → Record Types → Production."
 }
