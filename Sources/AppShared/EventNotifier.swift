@@ -70,25 +70,16 @@ public final class EventNotifier {
         didSet { UserDefaults.standard.set(enabled, forKey: Self.enabledKey) }
     }
 
-    /// Master toggle for AI-triggered notifications. When off, no
-    /// AI-classified event fires regardless of per-tag preferences below.
-    /// Defaults on.
-    public var notifyAI: Bool {
-        didSet { UserDefaults.standard.set(notifyAI, forKey: Self.aiKey) }
-    }
-
-    /// True when plain motion events (no AI classification) also fire
-    /// notifications. Defaults off — motion-only events tend to flood
-    /// when sustained.
-    public var notifyMotion: Bool {
-        didSet { UserDefaults.standard.set(notifyMotion, forKey: Self.motionKey) }
-    }
-
-    /// Per-AI-tag notification preferences (added in 0.4.0). Lets the
-    /// user keep "person" alerts on while muting frequent "pet" ones,
-    /// etc. Reading these as a dictionary so the format/filter loop
-    /// can do a single lookup per event. All default true so opted-in
-    /// AI notifications behave as in 0.3.0 unless the user customizes.
+    /// Per-category notification preferences. 0.8.2 unified this from the
+    /// old `notifyAI` master + `notifyMotion` + per-AI-tag trio: each
+    /// detection category — Motion, Person, Vehicle, Pet, … — now fires
+    /// notifications independently. Motion defaults OFF (it floods when
+    /// sustained); AI categories default ON. This is the single source of
+    /// truth for both the local-notification path (`classify`) and the
+    /// iOS CloudKit-relay receiver, so a category is gated identically
+    /// wherever an event becomes a banner — which is what fixes motion
+    /// leaking through when only AI categories are selected (the relay
+    /// receiver used to treat the "motion" detection as an AI tag).
     public var notifyPerTag: [DetectionType: Bool] {
         didSet {
             for (tag, on) in notifyPerTag {
@@ -97,13 +88,31 @@ public final class EventNotifier {
         }
     }
 
+    /// Whether a detection category currently fires notifications. Falls
+    /// back to the per-category default for any category the user hasn't
+    /// explicitly set. The one gate both `classify` (macOS local) and the
+    /// iOS relay receiver call, so Motion and the AI categories behave the
+    /// same on every path.
+    public func isCategoryEnabled(_ category: DetectionType) -> Bool {
+        notifyPerTag[category] ?? Self.defaultNotify(category)
+    }
+
+    /// Per-category default: Motion off (it floods when sustained), every
+    /// AI category on.
+    public static func defaultNotify(_ category: DetectionType) -> Bool {
+        category != .motion
+    }
+
     /// Current OS authorization state. Updated on app launch and after
     /// every `requestPermission(...)` call.
     public private(set) var permissionStatus: UNAuthorizationStatus = .notDetermined
 
     private static let enabledKey = "com.reolens.notifications.enabled"
+    // 0.8.2 migration sources: read once to seed the unified per-category
+    // map (incl. Motion), then superseded by the perTagKey entries.
     private static let aiKey = "com.reolens.notifications.ai"
     private static let motionKey = "com.reolens.notifications.motion"
+    private static let categoryMigrationKey = "com.reolens.notifications.categoryMigration.v2"
     private static func perTagKey(_ tag: DetectionType) -> String {
         "com.reolens.notifications.tag.\(tag.rawValue)"
     }
@@ -166,23 +175,42 @@ public final class EventNotifier {
         // Default `enabled` to true; the OS permission state is what
         // ultimately gates delivery, so flipping this on by default just
         // means "ready as soon as the user grants permission".
-        if UserDefaults.standard.object(forKey: Self.enabledKey) == nil {
-            UserDefaults.standard.set(true, forKey: Self.enabledKey)
+        let d = UserDefaults.standard
+        if d.object(forKey: Self.enabledKey) == nil {
+            d.set(true, forKey: Self.enabledKey)
         }
-        if UserDefaults.standard.object(forKey: Self.aiKey) == nil {
-            UserDefaults.standard.set(true, forKey: Self.aiKey)
-        }
-        self.enabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
-        self.notifyAI = UserDefaults.standard.bool(forKey: Self.aiKey)
-        self.notifyMotion = UserDefaults.standard.bool(forKey: Self.motionKey)
-        // Load per-tag preferences. Missing keys (i.e. users upgrading
-        // from 0.3.0 where these didn't exist) default to true so
-        // existing AI notifications keep firing exactly as before.
+        self.enabled = d.bool(forKey: Self.enabledKey)
+
+        // 0.8.2 — unify the legacy `notifyAI` master + `notifyMotion` +
+        // per-AI-tag prefs into a single per-category map that includes
+        // Motion. Migrate the old keys exactly once, preserving prior
+        // behavior: an AI tag notified iff (AI master on AND its per-tag
+        // wasn't explicitly off); motion notified iff `notifyMotion` (which
+        // defaulted off). After migration, perTagKey entries (now incl.
+        // `.motion`) are authoritative. `didSet` doesn't fire for the
+        // initializing assignment, so the migration writes each key
+        // explicitly.
         var loaded: [DetectionType: Bool] = [:]
-        for tag in DetectionType.allCases where tag != .motion {
-            let key = Self.perTagKey(tag)
-            let stored = UserDefaults.standard.object(forKey: key) as? Bool
-            loaded[tag] = stored ?? true
+        if d.object(forKey: Self.categoryMigrationKey) == nil {
+            let aiMaster = (d.object(forKey: Self.aiKey) as? Bool) ?? true
+            let motionOn = d.bool(forKey: Self.motionKey)  // default false
+            for tag in DetectionType.allCases {
+                let value: Bool
+                if tag == .motion {
+                    value = motionOn
+                } else {
+                    let perTag = (d.object(forKey: Self.perTagKey(tag)) as? Bool) ?? true
+                    value = aiMaster && perTag
+                }
+                loaded[tag] = value
+                d.set(value, forKey: Self.perTagKey(tag))
+            }
+            d.set(true, forKey: Self.categoryMigrationKey)
+        } else {
+            for tag in DetectionType.allCases {
+                let stored = d.object(forKey: Self.perTagKey(tag)) as? Bool
+                loaded[tag] = stored ?? Self.defaultNotify(tag)
+            }
         }
         self.notifyPerTag = loaded
         if Self.notificationsAvailable {
@@ -338,8 +366,8 @@ public final class EventNotifier {
         // Because per-camera state syncs across devices, a per-camera
         // mute is a "silence everywhere" signal — it blocks BOTH the
         // local notification AND the CloudKit relay. The per-category
-        // mutes below (notifyAI / notifyMotion / notifyPerTag) are
-        // per-device and only block the local notification.
+        // mutes (notifyPerTag, incl. Motion) are per-device and only
+        // block the local notification.
         guard CameraNotificationPreferences.isNotificationsEnabledOffMainActor(
             for: cameraID,
             channel: Int(event.channelID)
@@ -357,15 +385,15 @@ public final class EventNotifier {
 
         // The local-category mute reason, if any. `.suppressedForLog`
         // is produced by `classify` when the user has turned off this
-        // device's per-category toggle (notifyAI / notifyMotion /
-        // notifyPerTag). It suppresses the LOCAL banner only — the
-        // CloudKit relay is a separate channel, and the receiving
-        // device (iOS, via `AppDelegate.postLocalNotification`)
-        // applies its own per-category preferences before posting.
+        // device's per-category toggle (notifyPerTag). It suppresses the
+        // LOCAL banner only — the CloudKit relay is a separate channel,
+        // and the receiving device (iOS, via
+        // `AppDelegate.postLocalNotification`) applies its own
+        // per-category preferences before posting.
         // 0.6.6 fix: the previous version short-circuited the entire
         // notify() at the `.suppressedForLog` branch, silently
         // disabling the relay whenever the Mac had any category
-        // muted — and `notifyMotion` defaults to OFF, so every
+        // muted — and Motion defaults to OFF, so every
         // plain-motion event was being dropped before reaching
         // CloudKit. iPhone subscribers consequently saw zero silent
         // pushes from real motion even though the test-event button
@@ -382,9 +410,9 @@ public final class EventNotifier {
         // Relay to the user's other Apple devices via CloudKit IF
         // the user has opted in. INDEPENDENT of this device's
         // per-category notification toggles — the receiving device
-        // applies its own preferences. A Mac with notifyMotion off
-        // can therefore still publish motion events that an iPhone
-        // with notifyMotion on will surface as a banner. The shared
+        // applies its own preferences. A Mac with the Motion category
+        // off can therefore still publish motion events that an iPhone
+        // with Motion on will surface as a banner. The shared
         // throttle key still prevents a sustained motion burst from
         // flooding the relay.
         relayAllowed = MotionEventRelaySettings.publisherEnabled
@@ -804,19 +832,11 @@ public final class EventNotifier {
             let detection = DetectionType.fromReolinkString(tag)
             let label = detection?.label ?? tag.capitalized
             let synthetic = "\(label) detected"
-            if !notifyAI {
-                return .suppressedForLog(
-                    syntheticTitle: synthetic,
-                    tag: tag,
-                    reason: .aiMutedGlobally
-                )
-            }
-            // Per-tag filter (0.4.0). When the detection maps to a
-            // known DetectionType, honor the user's per-tag toggle.
-            // Unknown tags fall through with the master `notifyAI`
-            // gate above so the firmware can roll out new categories
-            // without us silently dropping them.
-            if let detection, notifyPerTag[detection] == false {
+            // Per-category gate. A known category honors the user's
+            // toggle; an unknown tag (a category newer than this build's
+            // DetectionType) falls through enabled so new firmware
+            // categories aren't silently dropped.
+            if let detection, !isCategoryEnabled(detection) {
                 return .suppressedForLog(
                     syntheticTitle: synthetic,
                     tag: tag,
@@ -830,7 +850,10 @@ public final class EventNotifier {
                 tag: tag
             )
         case .motionStart:
-            if !notifyMotion {
+            // Motion is just another category now (was the separate
+            // `notifyMotion` flag) — same gate as the AI tags, so it can't
+            // ride through on the AI path the way the relay receiver bug did.
+            if !isCategoryEnabled(.motion) {
                 return .suppressedForLog(
                     syntheticTitle: "Motion detected",
                     tag: nil,

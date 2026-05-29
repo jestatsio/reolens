@@ -2,6 +2,7 @@ import Testing
 import Foundation
 @testable import AppShared
 import ReolinkBaichuan
+import ReolinkAPI
 
 /// 0.5.0 Theme B5 — `EventNotifier`-adjacent unit tests. The notifier
 /// itself owns `UNUserNotificationCenter` state that's hard to mock,
@@ -88,15 +89,12 @@ struct EventNotifierThrottleKeyTests {
     @MainActor
     func matchesComposedClassification() {
         let notifier = EventNotifier.shared
-        let originalAI = notifier.notifyAI
-        let originalMotion = notifier.notifyMotion
-        defer {
-            notifier.notifyAI = originalAI
-            notifier.notifyMotion = originalMotion
-        }
-        // Ensure category toggles are ON so classify returns .composed.
-        notifier.notifyAI = true
-        notifier.notifyMotion = true
+        let original = notifier.notifyPerTag
+        defer { notifier.notifyPerTag = original }
+        // Ensure every category is ON so classify returns .composed.
+        notifier.notifyPerTag = Dictionary(
+            uniqueKeysWithValues: DetectionType.allCases.map { ($0, true) }
+        )
 
         let cases: [(BaichuanEvent, String)] = [
             (BaichuanEvent(channelID: 0, kind: .motionStart, raw: ""), "0-motion"),
@@ -120,12 +118,14 @@ struct EventNotifierThrottleKeyTests {
     @MainActor
     func keyAvailableEvenWhenLocallyMuted() {
         let notifier = EventNotifier.shared
-        let originalMotion = notifier.notifyMotion
-        defer { notifier.notifyMotion = originalMotion }
-        // Mute plain motion locally — this is the default-OFF state
-        // that historically caused real motion events to bypass the
-        // relay entirely. The relay key must still be derivable.
-        notifier.notifyMotion = false
+        let original = notifier.notifyPerTag
+        defer { notifier.notifyPerTag = original }
+        // Mute the Motion category — the default-OFF state that
+        // historically caused real motion events to bypass the relay
+        // entirely. The relay key must still be derivable.
+        var copy = notifier.notifyPerTag
+        copy[.motion] = false
+        notifier.notifyPerTag = copy
         let event = BaichuanEvent(channelID: 0, kind: .motionStart, raw: "")
         let result = notifier.classify(event: event, cameraName: "Test")
         // classify returns suppressedForLog — but the throttle key
@@ -134,7 +134,7 @@ struct EventNotifierThrottleKeyTests {
         if case .suppressedForLog = result {
             #expect(EventNotifier.throttleKey(for: event) == "0-motion")
         } else {
-            Issue.record("Expected .suppressedForLog when notifyMotion is off, got \(result)")
+            Issue.record("Expected .suppressedForLog when Motion is muted, got \(result)")
         }
     }
 }
@@ -195,5 +195,75 @@ struct EventNotifierWidgetPublishingTests {
         #expect(decoded.cameraName == "Back Yard")
         #expect(decoded.aiTags == ["person", "vehicle"])
         #expect(decoded.triggerFrameRelativePath == "frame-abc.jpg")
+    }
+}
+
+/// 0.8.2 — per-category event-type gating. The old `notifyAI` master +
+/// `notifyMotion` toggles became one per-category map (incl. `.motion`),
+/// and `classify` (plus the iOS relay receiver) gate every category
+/// through `isCategoryEnabled`. These pin the two behaviors that were
+/// wrong before: motion fires *only* when its own category is on (it used
+/// to ride the AI path on the relay receiver), and muting one AI category
+/// leaves the others firing.
+@Suite("EventNotifier per-category gating")
+@MainActor
+struct EventNotifierCategoryGatingTests {
+
+    /// Run `body` with `notifyPerTag` set to `map`, restoring the prior
+    /// value afterward. (Operates on the shared singleton like the other
+    /// suites here — it reads `UserDefaults.standard`.)
+    private func withCategories(_ map: [DetectionType: Bool], _ body: () -> Void) {
+        let notifier = EventNotifier.shared
+        let original = notifier.notifyPerTag
+        defer { notifier.notifyPerTag = original }
+        notifier.notifyPerTag = map
+        body()
+    }
+
+    @Test("Motion fires only when the Motion category is on (the leak fix)")
+    func motionGatedByOwnCategory() {
+        let notifier = EventNotifier.shared
+        let event = BaichuanEvent(channelID: 0, kind: .motionStart, raw: "")
+        // Every AI category on, Motion off — motion must STILL be
+        // suppressed. The bug was motion riding through whenever AI was on.
+        var aiOn = Dictionary(uniqueKeysWithValues: DetectionType.allCases.map { ($0, true) })
+        aiOn[.motion] = false
+        withCategories(aiOn) {
+            if case .suppressedForLog(_, _, let reason) = notifier.classify(event: event, cameraName: "Test") {
+                #expect(reason == .motionMutedGlobally)
+            } else {
+                Issue.record("Motion should be suppressed when its category is off")
+            }
+        }
+        withCategories([.motion: true]) {
+            if case .composed = notifier.classify(event: event, cameraName: "Test") {} else {
+                Issue.record("Motion should compose when its category is on")
+            }
+        }
+    }
+
+    @Test("Muting one AI category leaves the others firing")
+    func aiCategoriesIndependent() {
+        let notifier = EventNotifier.shared
+        let person = BaichuanEvent(channelID: 1, kind: .ai("person"), raw: "")
+        let vehicle = BaichuanEvent(channelID: 1, kind: .ai("vehicle"), raw: "")
+        withCategories([.person: false, .vehicle: true]) {
+            if case .suppressedForLog(_, _, let reason) = notifier.classify(event: person, cameraName: "Test") {
+                #expect(reason == .tagMuted)
+            } else {
+                Issue.record("Person should be suppressed when its category is off")
+            }
+            if case .composed = notifier.classify(event: vehicle, cameraName: "Test") {} else {
+                Issue.record("Vehicle should compose when its category is on")
+            }
+        }
+    }
+
+    @Test("Category defaults: Motion off, AI categories on")
+    func categoryDefaults() {
+        #expect(EventNotifier.defaultNotify(.motion) == false)
+        #expect(EventNotifier.defaultNotify(.person) == true)
+        #expect(EventNotifier.defaultNotify(.vehicle) == true)
+        #expect(EventNotifier.defaultNotify(.pet) == true)
     }
 }
