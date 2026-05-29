@@ -4,14 +4,21 @@ import OSLog
 private let log = Logger(subsystem: "com.reolens.app", category: "live-activity-push")
 
 /// 0.5.1 — Persists the push tokens iOS hands us for in-flight Live
-/// Activities so a future server-driven sender (or a peer Apple
-/// device acting as a relay) can update them remotely.
+/// Activities, indexed by activity ID and camera UUID.
+///
+/// **0.7.0 correction:** these tokens are a **device-local index**, NOT
+/// fuel for a server. Reolens has no APNs provider and never will (a
+/// true ActivityKit push requires a `.p8`-signed provider server, which
+/// AGENTS.md §5 forbids). The "Live Activity relay" shipped in 0.7.0 is
+/// the *receiver* updating its own activity locally when the Hub's
+/// relayed `MotionEvent` arrives — see `LiveActivityRelayUpdater`. The
+/// persisted `pushTokenHex` is retained only for diagnostics and is
+/// never transmitted off-device. Do not "finish" this by standing up a
+/// push server.
 ///
 /// Schema is intentionally minimal: per-activity ID we store the
 /// raw APNs token (hex string) + the camera UUID it belongs to +
-/// the iOS-issued token freshness timestamp. Tokens rotate when the
-/// system tears down and rebuilds the activity, so the registry is
-/// authoritative on "what to push to right now."
+/// the iOS-issued token freshness timestamp.
 ///
 /// Storage: iCloud Drive ubiquity container next to bookmarks. Local
 /// fallback under Documents matches the bookmark store pattern.

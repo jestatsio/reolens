@@ -107,6 +107,10 @@ struct iPhoneTabShell: View {
             .tabItem { Label("Settings", systemImage: "gear") }
             .tag(Tab.settings)
         }
+        // 0.7.0 — surface "Hub offline — notifications paused" above the
+        // tabs when the always-on Hub's heartbeat goes stale. Collapses
+        // to zero height in every other state.
+        .safeAreaInset(edge: .top) { HubOfflineBanner() }
         .task {
             // 0.6.0 — restore the most-recently-viewed camera on
             // cold launch. App-Intent navigation (Open Camera Siri

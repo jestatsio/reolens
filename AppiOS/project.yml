@@ -35,7 +35,7 @@ targets:
       path: Resources/Info.plist
       properties:
         CFBundleDisplayName: Reolens
-        CFBundleShortVersionString: "0.6.11"
+        CFBundleShortVersionString: "0.7.0"
         CFBundleVersion: "18"
         # iOS 11+ requires apps using asset-catalog icons to also
         # declare CFBundleIconName so the OS / App Store knows which
@@ -154,7 +154,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS
         PRODUCT_NAME: Reolens
-        MARKETING_VERSION: "0.6.11"
+        MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "18"
         # Same Apple Developer team as the macOS app. Xcode's automatic
         # signing uses this to fetch / create the Apple Distribution
@@ -208,7 +208,7 @@ targets:
       path: Widgets/Info.plist
       properties:
         CFBundleDisplayName: Reolens Widgets
-        CFBundleShortVersionString: "0.6.11"
+        CFBundleShortVersionString: "0.7.0"
         CFBundleVersion: "18"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
@@ -221,7 +221,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.Widgets
         PRODUCT_NAME: ReolensiOSWidgets
-        MARKETING_VERSION: "0.6.11"
+        MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "18"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -279,7 +279,7 @@ targets:
       path: NotificationService/Info.plist
       properties:
         CFBundleDisplayName: Reolens Notification Service
-        CFBundleShortVersionString: "0.6.11"
+        CFBundleShortVersionString: "0.7.0"
         CFBundleVersion: "18"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.usernotifications.service
@@ -297,7 +297,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.NotificationService
         PRODUCT_NAME: ReolensiOSNotificationService
-        MARKETING_VERSION: "0.6.11"
+        MARKETING_VERSION: "0.7.0"
         CURRENT_PROJECT_VERSION: "18"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
@@ -335,3 +335,48 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: ReolensiOS
+  # ------------------------------------------------------------------
+  # Apple TV living-room viewer (0.7.0).
+  #
+  # Standalone tvOS app (NOT embedded in the iOS bundle, unlike the
+  # watch app — so it lives directly in project.yml rather than being
+  # bolted on by a Ruby script). Live view only. Reads the camera list
+  # from iCloud Drive and the encrypted CameraCredential records from
+  # the user's private CloudKit DB (published by iOS/macOS when "Stream
+  # on Apple TV" is on). All logic is in the AppTVOS SPM library.
+  # ------------------------------------------------------------------
+  ReolensTVOS:
+    type: application
+    platform: tvOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: TVOS
+    info:
+      path: TVOS/Info.plist
+      properties:
+        CFBundleDisplayName: Reolens
+        CFBundleShortVersionString: "0.7.0"
+        CFBundleVersion: "18"
+    entitlements:
+      path: TVOS/ReolensTVOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers:
+          - "iCloud.com.reolens.Reolens"
+        com.apple.developer.ubiquity-container-identifiers:
+          - "iCloud.com.reolens.Reolens"
+        com.apple.developer.icloud-services:
+          - CloudDocuments
+          - CloudKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.tvOS
+        PRODUCT_NAME: Reolens
+        MARKETING_VERSION: "0.7.0"
+        CURRENT_PROJECT_VERSION: "18"
+        DEVELOPMENT_TEAM: 5M9UT7VQ8Q
+        CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "3"
+    dependencies:
+      - package: Reolens
+        product: AppTVOS

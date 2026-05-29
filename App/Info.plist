@@ -2,105 +2,88 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleDisplayName</key>
-    <string>Reolens</string>
-    <key>CFBundleExecutable</key>
-    <string>Reolens</string>
-    <key>CFBundleIconFile</key>
-    <string>AppIcon</string>
-    <key>CFBundleIconName</key>
-    <string>AppIcon</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.reolens.Reolens</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>Reolens</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.6.11</string>
-    <key>CFBundleVersion</key>
-    <string>23</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>26.0</string>
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.video</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>Reolens needs to connect to Reolink cameras, NVRs, and Home Hubs on your local network.</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Reolens uses the microphone for two-way talk to your Reolink cameras.</string>
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_http._tcp</string>
-        <string>_rtsp._tcp</string>
-    </array>
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsLocalNetworking</key>
-        <true/>
-        <key>NSAllowsArbitraryLoads</key>
-        <true/>
-    </dict>
-    <!-- Sparkle 2 auto-update keys. SUPublicEDKey is the public half of the
-         EdDSA signing keypair; the private half lives in the maintainer's
-         keychain locally and in the SPARKLE_ED_PRIVATE_KEY CI secret.
-         At release time the workflow signs the DMG with the private key,
-         and on the user's machine Sparkle verifies the signature against
-         this public key before applying. An empty/placeholder value
-         disables update application (Sparkle refuses to install unsigned
-         updates), which is safe during development. -->
-    <!-- The appcast is published as a GitHub Release asset (named
-         appcast.xml) on every tag push. Sparkle hits the
-         /releases/latest/download/ permalink so users always get the
-         freshest feed without us having to push a file back to main
-         (which the repo's branch-protection rule blocks anyway). -->
-    <key>SUFeedURL</key>
-    <string>https://github.com/jestatsio/reolens/releases/latest/download/appcast.xml</string>
-    <key>SUEnableAutomaticChecks</key>
-    <true/>
-    <key>SUScheduledCheckInterval</key>
-    <integer>86400</integer>
-    <key>SUPublicEDKey</key>
-    <string></string>
-    <!-- Continuity / Handoff: the user can start a camera on iPhone/iPad and
-         hand it off to the Mac (and vice-versa). The activity type lines up
-         with `CameraContinuity.cameraDetailActivityType` in AppShared; the
-         payload carries only the camera UUID + channel index (AGENTS.md §11). -->
-    <key>NSUserActivityTypes</key>
-    <array>
-        <string>io.reolens.camera-detail</string>
-    </array>
-    <key>UTExportedTypeDeclarations</key>
-    <array>
-        <dict>
-            <key>UTTypeIdentifier</key>
-            <string>com.reolens.channelDrag</string>
-            <key>UTTypeDescription</key>
-            <string>Reolens channel drag payload</string>
-            <key>UTTypeConformsTo</key>
-            <array>
-                <string>public.data</string>
-            </array>
-            <key>UTTypeTagSpecification</key>
-            <dict/>
-        </dict>
-        <dict>
-            <key>UTTypeIdentifier</key>
-            <string>com.reolens.deviceDrag</string>
-            <key>UTTypeDescription</key>
-            <string>Reolens device drag payload</string>
-            <key>UTTypeConformsTo</key>
-            <array>
-                <string>public.data</string>
-            </array>
-            <key>UTTypeTagSpecification</key>
-            <dict/>
-        </dict>
-    </array>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>Reolens</string>
+	<key>CFBundleExecutable</key>
+	<string>Reolens</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.reolens.Reolens</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Reolens</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.7.0</string>
+	<key>CFBundleVersion</key>
+	<string>23</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.video</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_rtsp._tcp</string>
+	</array>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Reolens needs to connect to Reolink cameras, NVRs, and Home Hubs on your local network.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Reolens uses the microphone for two-way talk to your Reolink cameras.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>io.reolens.camera-detail</string>
+	</array>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/jestatsio/reolens/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string></string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Reolens channel drag payload</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.reolens.channelDrag</string>
+			<key>UTTypeTagSpecification</key>
+			<dict/>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Reolens device drag payload</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.reolens.deviceDrag</string>
+			<key>UTTypeTagSpecification</key>
+			<dict/>
+		</dict>
+	</array>
 </dict>
 </plist>

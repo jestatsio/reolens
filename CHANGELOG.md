@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+The 0.7.0 line — "Always-on + Big Screen".
+
+### Added
+
+- **Reolens Hub (macOS).** Designate one always-on Mac as the Hub and it
+  runs the camera listener headless: auto-launches at login via a
+  `SMAppService.agent` LaunchAgent that relaunches the same signed binary
+  with `--hub` (accessory mode, no Dock icon, `KeepAlive`), so
+  notifications, Live Activities, and the hub heartbeat keep flowing with
+  no window open. Explicit per-Mac opt-in in Settings → Background. Still
+  no Reolens server — CloudKit-under-your-own-iCloud (AGENTS.md §5).
+  `HubEngine` connects every camera and reconnects dropped sessions;
+  cameras with no password on this Mac are surfaced, never silently
+  skipped.
+- **"Hub offline — notifications paused" banner** on iPhone, iPad, macOS,
+  and Apple TV, driven by a CloudKit `HubStatus` heartbeat. Staleness is
+  judged from the server's record-modification time (clock-skew-proof).
+  Neutral when the Hub is turned off deliberately; silent when no Hub was
+  ever configured. The Hub Mac shows its own status in the menu bar.
+- **Apple TV viewer (tvOS).** A living-room live-view app — a focusable
+  camera grid that opens a fullscreen RTSP view. Reads the camera list
+  from iCloud Drive; streams using a new opt-in that syncs camera
+  passwords (encrypted) to the Apple TV. Live view only this release.
+- **Live Activity relay.** Relayed motion events from the Hub now update
+  the in-flight Live Activity locally on the receiving device — the
+  server-free realization of the roadmap item (a true ActivityKit push
+  would require a provider server, forbidden by §5).
+
+### Changed
+
+- The CloudKit motion-relay setup copy now points users to Hub mode for
+  round-the-clock delivery.
+- `Scripts/check-versions.sh` now checks every xcodegen target's
+  `MARKETING_VERSION` (iOS app, Widgets, Notification Service, tvOS)
+  against the macOS version — not just the first one it finds.
+
+### Fixed
+
+- iOS Live Activities never actually started: `EventNotifier.liveActivityBridge`
+  was never assigned at launch. Now wired in `AppDelegate`, fixing both
+  the local and the new relayed update paths.
+- `LiveVideoView` no longer falls back to the tvOS-deprecated
+  `UIScreen.main.scale`.
+
+### Security
+
+- The new Apple TV credential sync stores camera passwords only in
+  `CKRecord.encryptedValues` (ciphertext on Apple's servers, decryptable
+  only by the user's own Apple devices), behind an explicit,
+  off-by-default opt-in (Settings → Apple TV), in the user's **private**
+  CloudKit database. Passwords are never logged or persisted in plaintext
+  and are held **in memory only** on tvOS (it has no durable Keychain).
+  Turning the opt-in off deletes the records. Reviewed with the
+  `security-reviewer` agent — clean (no CRITICAL/HIGH findings).
+- The new `HubStatus` and `CameraCredential` CloudKit record types must
+  be promoted to Production (with `CameraCredential.password` marked
+  encrypted) before a release build can use them — see
+  `docs/TESTFLIGHT_NOTIFICATIONS.md`.
+
 ## [0.6.11] — 2026-05-18
 
 Two iOS-only follow-ups to the 0.6.9 notification work.

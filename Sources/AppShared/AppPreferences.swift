@@ -76,6 +76,25 @@ public final class AppPreferences {
         }
     }
 
+    /// 0.7.0 — "Run this Mac as a Reolens Hub" opt-in. When on, this
+    /// Mac connects every camera and publishes motion events to the
+    /// user's private CloudKit database even with no window open, so it
+    /// can act as the always-on listener that drives notifications,
+    /// Live Activities, and the hub-health heartbeat for the user's
+    /// other devices. See `HubEngine` / `HubController`.
+    ///
+    /// Device-local on purpose (like `developerMode` and the menu-bar
+    /// keys): each Mac decides independently whether it is the Hub —
+    /// only one Mac per home should be, and that choice must never
+    /// silently ride iCloud onto another machine. macOS is the only
+    /// platform that acts on this flag; it lives here (cross-platform
+    /// `AppShared`) so the gating logic stays testable in isolation.
+    public var runAsHub: Bool {
+        didSet {
+            defaults.set(runAsHub, forKey: Self.runAsHubKey)
+        }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.developerMode = defaults.bool(forKey: Self.developerModeKey)
@@ -84,6 +103,7 @@ public final class AppPreferences {
             .flatMap(RecordingQuality.init(rawValue:))) ?? .low
         self.lastViewedCameraID = defaults.string(forKey: Self.lastViewedCameraKey)
             .flatMap(UUID.init(uuidString:))
+        self.runAsHub = defaults.bool(forKey: Self.runAsHubKey)
     }
 
     // MARK: - Keys
@@ -92,6 +112,9 @@ public final class AppPreferences {
     static let showCameraNameKey = "com.reolens.showCameraNameOnFeed"
     static let defaultRecordingQualityKey = "com.reolens.defaultRecordingQuality"
     static let lastViewedCameraKey = "com.reolens.lastViewedCameraID"
+    /// Public so the macOS Settings "Run as Hub" toggle can bind to it
+    /// via `@AppStorage` (mirrors `MotionEventRelaySettings.publisherEnabledKey`).
+    public static let runAsHubKey = "com.reolens.runAsHub"
 
     // MARK: - Non-isolated peeks
 
@@ -103,5 +126,15 @@ public final class AppPreferences {
     /// constructed without a custom `defaults` argument — writes.
     public static var developerModeIsOn: Bool {
         UserDefaults.standard.bool(forKey: developerModeKey)
+    }
+
+    /// Read the Run-as-Hub flag from outside the MainActor. Launch-time
+    /// code (the `--hub` headless bootstrap) and the off-main-actor
+    /// publish gate consult this to decide whether this Mac should
+    /// behave as the always-on Hub without hopping actors. Reads from
+    /// `.standard` for the same reason `developerModeIsOn` does — that's
+    /// where the live `CameraStore` writes.
+    public static var runAsHubIsOn: Bool {
+        UserDefaults.standard.bool(forKey: runAsHubKey)
     }
 }

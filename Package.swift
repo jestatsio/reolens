@@ -15,7 +15,10 @@ let package = Package(
         // Series 6+ — the iOS/macOS floors are only consulted when
         // those platforms are the build destination, so this doesn't
         // affect the main app's deployment target.
-        .watchOS(.v11)
+        .watchOS(.v11),
+        // 0.7.0 adds the AppTVOS product (Apple TV living-room viewer).
+        // tvOS 26 to match the iOS/macOS SDK floor.
+        .tvOS(.v26)
     ],
     products: [
         .library(name: "ReolinkAPI", targets: ["ReolinkAPI"]),
@@ -36,6 +39,11 @@ let package = Package(
         // Depends only on `ReolinkAPI` (pure HTTP+JSON) to avoid
         // dragging UIKit/AppKit-leaning code into the watch build.
         .library(name: "AppWatch", targets: ["AppWatch"]),
+        // 0.7.0 — Apple TV viewer surface used by the ReolensTVOS app
+        // target in `ReolensiOS.xcodeproj`. Depends only on ReolinkAPI +
+        // ReolinkStreaming (live RTSP) — never AppShared — to stay thin,
+        // mirroring the AppWatch precedent. See Sources/AppTVOS/README.md.
+        .library(name: "AppTVOS", targets: ["AppTVOS"]),
         .executable(name: "Reolens", targets: ["Reolens"]),
         // 0.7.0 — small diagnostic CLI for end-to-end smoke
         // tests of the remote-connectivity stack against a real
@@ -158,6 +166,20 @@ let package = Package(
                 .enableUpcomingFeature("ExistentialAny")
             ]
         ),
+        .target(
+            // 0.7.0 — Apple TV viewer library. Thin like AppWatch, but
+            // adds ReolinkStreaming because the TV does real RTSP live
+            // view (the watch only shows snapshots). Never depends on
+            // AppShared. The tvOS app target in ReolensiOS.xcodeproj
+            // consumes this product. See `Sources/AppTVOS/README.md`.
+            name: "AppTVOS",
+            dependencies: ["ReolinkAPI", "ReolinkStreaming"],
+            path: "Sources/AppTVOS",
+            exclude: ["README.md"],
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
         .executableTarget(
             name: "Reolens",
             dependencies: [
@@ -173,7 +195,10 @@ let package = Package(
             // the main Reolens target keeps `swift build` clean and
             // prevents the @main collision between
             // `ReolensApp` and `ReolensWidgetsBundle`.
-            exclude: ["Info.plist", "Reolens.entitlements", "Reolens.dev.entitlements", "Widgets"],
+            // 0.7.0 — the Hub LaunchAgent plist is a build-time artifact
+            // embedded into Contents/Library/LaunchAgents/ by
+            // Scripts/build-app.sh, not an SPM source or resource.
+            exclude: ["Info.plist", "Reolens.entitlements", "Reolens.dev.entitlements", "Widgets", "Hub/com.reolens.Reolens.Hub.plist"],
             swiftSettings: [
                 // StrictConcurrency is implicit at swift-tools-version 6.0;
                 // enabling it explicitly is rejected by the toolchain.

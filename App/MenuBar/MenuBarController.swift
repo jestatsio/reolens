@@ -206,6 +206,15 @@ private struct MenuBarPopoverView: View {
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 14)
                 .padding(.bottom, 8)
+            // 0.7.0 — when this Mac is the always-on Hub, give the user
+            // the confidence signal where they expect it: the menu bar.
+            if AppPreferences.runAsHubIsOn {
+                Label("This Mac is your Reolens Hub", systemImage: "antenna.radiowaves.left.and.right")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.green)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+            }
             Divider()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 0) {

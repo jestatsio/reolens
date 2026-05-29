@@ -115,6 +115,16 @@ cp "${BIN_PATH}" "${APP_DIR}/Contents/MacOS/Reolens"
 cp "${INFO_PLIST}" "${APP_DIR}/Contents/Info.plist"
 cp "${ICON_SRC}"   "${APP_DIR}/Contents/Resources/AppIcon.icns"
 
+# Embed the Reolens Hub LaunchAgent (0.7.0). `SMAppService.agent` looks
+# for the plist inside the sealed bundle at Contents/Library/LaunchAgents/.
+# Copy it before the final codesign so the app signature covers it; the
+# plist is not a Mach-O, so it needs no separate signing. The agent
+# relaunches this same binary with `--hub` for headless always-on
+# listening — see App/Hub/HubController.swift.
+mkdir -p "${APP_DIR}/Contents/Library/LaunchAgents"
+cp "${REPO_ROOT}/App/Hub/com.reolens.Reolens.Hub.plist" \
+   "${APP_DIR}/Contents/Library/LaunchAgents/com.reolens.Reolens.Hub.plist"
+
 # Embed a MAC_APP_DIRECT provisioning profile when we're signing with a
 # real Developer ID identity AND ASC API credentials are present. This
 # is required for any "managed" entitlement that needs profile backing

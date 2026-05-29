@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var showingDiagnostics: Bool = false
     @AppStorage(MenuBarController.menuBarModeKey) private var menuBarMode: Bool = false
     @AppStorage(MenuBarController.launchAtLoginKey) private var launchAtLogin: Bool = false
+    @AppStorage(AppPreferences.runAsHubKey) private var runAsHub: Bool = false
+    @State private var hubEngine: HubEngine?
     @Environment(CameraStore.self) private var store
 
     var body: some View {
@@ -80,9 +82,11 @@ struct SettingsView: View {
     private var backgroundTab: some View {
         Form {
             SettingsBackgroundBucket()
+            hubSection
             menuBarSection
         }
         .formStyle(.grouped)
+        .onAppear { hubEngine = HubController.shared.activeEngine }
     }
 
     private var privacyTab: some View {
@@ -104,6 +108,63 @@ struct SettingsView: View {
             SettingsAboutBucket()
         }
         .formStyle(.grouped)
+    }
+
+    /// 0.7.0 — macOS-only "Reolens Hub" section. Designating this Mac as
+    /// the Hub makes it the always-on listener: it connects every camera
+    /// and publishes motion events to the user's private CloudKit
+    /// database even with no window open, so their other Apple devices
+    /// get notifications, Live Activities, and remote viewing without
+    /// anyone keeping the app open. One Mac per home should be the Hub;
+    /// others stay passive viewers. No iOS analog (iPhone/iPad can't
+    /// hold a background listener) — AGENTS.md §1 carve-out.
+    private var hubSection: some View {
+        Section("Reolens Hub") {
+            Toggle("Run this Mac as a Reolens Hub", isOn: $runAsHub)
+                .onChange(of: runAsHub) { _, newValue in
+                    HubController.shared.setRunAsHub(newValue, store: store)
+                    hubEngine = HubController.shared.activeEngine
+                    // Hub mode registers its own headless LaunchAgent, so
+                    // it supersedes the foreground "Launch at login"
+                    // checkbox — force that off so two login items can't
+                    // both relaunch Reolens.
+                    if newValue, launchAtLogin {
+                        launchAtLogin = false
+                        MenuBarController.shared.setLaunchAtLogin(false)
+                    }
+                }
+            Text("New in 0.7.0. Pick one always-on Mac (a Mac mini is ideal) as your Hub. It watches every camera around the clock and relays motion to your iPhone, iPad, Apple TV, and Watch — no Reolens server, just your own iCloud. Runs headless and starts at login; turn it off here anytime.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if runAsHub, let engine = hubEngine {
+                hubStatusLine(engine)
+            }
+        }
+    }
+
+    /// Live "watching N of M cameras" status plus a callout for any
+    /// camera whose password isn't on this Mac (so the gap is visible
+    /// and fixable, never silent — AGENTS.md §4). Reads the `@Observable`
+    /// `HubEngine` held in `@State`, so it refreshes as cameras connect.
+    @ViewBuilder
+    private func hubStatusLine(_ engine: HubEngine) -> some View {
+        let total = engine.configuredCameraCount
+        Label(
+            "Watching \(engine.hostedCameraCount) of \(total) camera\(total == 1 ? "" : "s")",
+            systemImage: "dot.radiowaves.left.and.right"
+        )
+        .font(.caption.weight(.medium))
+        .foregroundStyle(.green)
+        if !engine.unhostableCameraNames.isEmpty {
+            let names = engine.unhostableCameraNames.map { "“\($0)”" }.joined(separator: ", ")
+            let one = engine.unhostableCameraNames.count == 1
+            Label(
+                "\(names) \(one ? "has" : "have") no password on this Mac — enter \(one ? "it" : "them") on this Mac to include \(one ? "it" : "them").",
+                systemImage: "exclamationmark.triangle"
+            )
+            .font(.caption)
+            .foregroundStyle(.orange)
+        }
     }
 
     /// macOS-only section, kept distinct from the cross-platform

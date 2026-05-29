@@ -25,6 +25,11 @@ struct ContentView: View {
             detailContent
                 .id(store.selection)
         }
+        // 0.7.0 — "Hub offline — notifications paused" banner for a Mac
+        // that is NOT the Hub (or whose Hub went stale). Zero height in
+        // every non-outage state.
+        .safeAreaInset(edge: .top) { HubOfflineBanner() }
+        .task { await HubHealth.shared.refresh() }
         .sheet(isPresented: $showingAddCamera) {
             AddCameraSheet { entry, password in
                 store.add(entry, password: password)
