@@ -155,7 +155,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS
         PRODUCT_NAME: Reolens
         MARKETING_VERSION: "0.7.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         # Same Apple Developer team as the macOS app. Xcode's automatic
         # signing uses this to fetch / create the Apple Distribution
         # certificate and the App Store provisioning profile on first
@@ -222,7 +222,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.Widgets
         PRODUCT_NAME: ReolensiOSWidgets
         MARKETING_VERSION: "0.7.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
         PROVISIONING_PROFILE_SPECIFIER: "$(REOLENS_IOS_WIDGETS_PROFILE_NAME)"
@@ -298,7 +298,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.iOS.NotificationService
         PRODUCT_NAME: ReolensiOSNotificationService
         MARKETING_VERSION: "0.7.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
         PROVISIONING_PROFILE_SPECIFIER: "$(REOLENS_IOS_NOTIFICATION_SERVICE_PROFILE_NAME)"
@@ -372,7 +372,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.reolens.Reolens.tvOS
         PRODUCT_NAME: Reolens
         MARKETING_VERSION: "0.7.0"
-        CURRENT_PROJECT_VERSION: "18"
+        CURRENT_PROJECT_VERSION: "19"
         DEVELOPMENT_TEAM: 5M9UT7VQ8Q
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
