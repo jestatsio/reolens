@@ -53,15 +53,9 @@ public struct SettingsNotificationsBucket: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Event types") {
-                Toggle("AI events (person, vehicle, pet, …)", isOn: $notifier.notifyAI)
-                Toggle("Motion only (no AI classification)", isOn: $notifier.notifyMotion)
-                Text("Motion-only events can flood when sustained — leave off unless you want every triggered second.")
-                    .font(.footnote)
-                    .foregroundStyle(.tertiary)
-            }
-            .disabled(!notifier.enabled)
-
+            // "Event types" — per-category toggles (Motion, Person,
+            // Vehicle, Pet, …). 0.8.2 replaced the old AI-master + Motion
+            // toggle pair with this single independent-category list.
             NotificationCategoriesSection(notifier: notifier)
             PerCameraNotificationsSection()
             OvernightDigestSettingsSection()

@@ -359,14 +359,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
             return
         }
         if let detection {
-            // Per-tag user gate, mirroring local-notification path.
-            let perTagOn = await MainActor.run { notifier.notifyPerTag[detection] ?? true }
-            let aiOn = await MainActor.run { notifier.notifyAI }
-            if !aiOn { await logDrop(.aiMutedGlobally); return }
-            if !perTagOn { await logDrop(.tagMuted); return }
-        } else if event.detection == "motion" {
-            let motionOn = await MainActor.run { notifier.notifyMotion }
-            if !motionOn { await logDrop(.motionMutedGlobally); return }
+            // Per-category user gate, mirroring the local-notification
+            // path (`EventNotifier.classify`). One gate for every category
+            // including Motion. Before 0.8.2 a relayed "motion" event
+            // mapped to `DetectionType.motion` and rode through this AI
+            // branch — gated by `notifyAI` with no `notifyPerTag[.motion]`
+            // entry — so motion leaked whenever AI was on. The dead
+            // `else if event.detection == "motion"` branch never ran.
+            let on = await MainActor.run { notifier.isCategoryEnabled(detection) }
+            if !on {
+                await logDrop(detection == .motion ? .motionMutedGlobally : .tagMuted)
+                return
+            }
         }
         let title = syntheticTitle
         let cameraName = cameraNameFallback

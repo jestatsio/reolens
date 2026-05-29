@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.2] — 2026-05-29
+
+### Added
+
+- **Per-category notification picker.** Notification settings → "Event
+  types" is now a single list of independent toggles — Motion, Person,
+  Vehicle, Pet, … — replacing the old "AI events" / "Motion only" pair that
+  read as mutually exclusive but weren't. Turn on exactly the categories
+  you want; each fires independently.
+
+### Fixed
+
+- **Motion no longer leaks through when only AI categories are on.** The
+  CloudKit-relay receiver treated a relayed "motion" detection as an AI tag
+  (it maps to `DetectionType.motion`), so motion rode the AI gate whenever
+  AI was enabled. Every category — Motion included — is now gated the same
+  way on both the local and relay paths.
+- **iCloud works on the Mac App Store / TestFlight build.** The
+  iCloud-entitlement probe only recognized the Developer-ID provisioning
+  profile; App Store / TestFlight builds carry a Mac App Store receipt
+  instead, which left the motion relay, hub heartbeat, and credential sync
+  disabled there. Both markers are accepted now.
+
+### Changed
+
+- iOS build numbers auto-increment per CI run (matching macOS), and tagged
+  releases publish a GitHub Release again.
+
 ## [0.8.0] — 2026-05-29
 
 The 0.8.0 line — "Mac App Store".
@@ -2152,7 +2180,8 @@ First public release.
 - All camera passwords stored in the macOS Keychain — never in plain text
 - No analytics, no telemetry, no accounts
 
-[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/jestatsio/reolens/compare/v0.8.0...v0.8.2
 [0.8.0]: https://github.com/jestatsio/reolens/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jestatsio/reolens/compare/v0.6.11...v0.7.0
 [0.6.6]: https://github.com/jestatsio/reolens/compare/v0.6.5...v0.6.6
