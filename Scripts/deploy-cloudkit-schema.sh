@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 #
-# Deploy or export the CloudKit schema for the motion-event relay.
+# Deploy or export the CloudKit schema for the Reolens container.
+#
+# The exported file is the WHOLE container schema, not just one record
+# type. As of 0.7.0 it covers:
+#   - MotionEvent      — motion-relay notifications
+#   - HubStatus        — Hub-offline heartbeat (0.7.0)
+#   - CameraCredential — Apple TV credential sync (0.7.0); its `password`
+#                        field is ENCRYPTED. See CloudKit/README.md for the
+#                        authoritative field/index/encryption spec.
 #
 # CloudKit has two schemas per container: Development auto-creates
 # record types and fields the first time the app writes them;
@@ -14,9 +22,9 @@
 #
 # Subcommands:
 #   export   — dump the current Development schema to
-#              CloudKit/MotionEvent.ckdb (committed; becomes the
+#              CloudKit/schema.ckdb (committed; becomes the
 #              source of truth for diffs)
-#   push     — import the committed CloudKit/MotionEvent.ckdb into
+#   push     — import the committed CloudKit/schema.ckdb into
 #              CloudKit Development. Use this when you've added a
 #              field locally (e.g. a new optional column on
 #              MotionEvent) and need it in Dev so you can then
@@ -28,7 +36,7 @@
 #   promote  — clone Development → Production via cktool. Refuses
 #              to run without an interactive y/N confirmation.
 #   diff     — export Dev to a temp file and `diff` it against the
-#              committed CloudKit/MotionEvent.ckdb so you can see
+#              committed CloudKit/schema.ckdb so you can see
 #              what would change if you ran `export` now.
 #
 # Required environment:
@@ -49,14 +57,14 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-readonly SCHEMA_FILE="CloudKit/MotionEvent.ckdb"
+readonly SCHEMA_FILE="CloudKit/schema.ckdb"
 
 usage() {
     cat <<'EOF'
 Usage: Scripts/deploy-cloudkit-schema.sh <subcommand>
 
 Subcommands:
-  export   Dump CloudKit Development schema to CloudKit/MotionEvent.ckdb
+  export   Dump CloudKit Development schema to CloudKit/schema.ckdb
   push     Import the committed .ckdb into CloudKit Development
   promote  Clone Development schema to Production (requires confirmation)
   diff     Show diff between live Development schema and committed file

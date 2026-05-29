@@ -152,7 +152,7 @@ To deploy:
    export CKTOOL_TEAM_ID=5M9UT7VQ8Q
    export CKTOOL_CONTAINER=iCloud.com.reolens.Reolens
    Scripts/deploy-cloudkit-schema.sh export
-   git add CloudKit/MotionEvent.ckdb && git commit -m 'chore: snapshot CloudKit schema'
+   git add CloudKit/schema.ckdb && git commit -m 'chore: snapshot CloudKit schema'
    ```
 
 3. Promote Development → Production:
@@ -194,7 +194,7 @@ So adding a field requires either the Console or `cktool`:
 
 **`cktool` (reproducible):**
 1. `Scripts/deploy-cloudkit-schema.sh export` — pull current Dev to
-   `CloudKit/MotionEvent.ckdb`.
+   `CloudKit/schema.ckdb`.
 2. Edit the file to add the new field. The format is human-readable;
    model the new line on the existing field entries.
 3. `Scripts/deploy-cloudkit-schema.sh push` — import the edited file
