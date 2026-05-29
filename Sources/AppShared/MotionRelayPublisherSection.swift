@@ -49,7 +49,7 @@ public struct MotionRelayPublisherSection: View {
                 Label("iCloud isn't available on this Reolens build.", systemImage: "icloud.slash")
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.orange)
-                Text("Locally-built (./Scripts/build-app.sh) Reolens uses slim entitlements that drop the iCloud container to keep AMFI happy. Install the Developer-ID-signed release DMG to use the CloudKit motion-event relay. The toggle is disabled until iCloud is reachable.")
+                Text("Locally-built (./Scripts/build-app.sh) Reolens uses slim entitlements that drop the iCloud container to keep AMFI happy. Run the ReolensMac scheme in Xcode, or install the App Store / TestFlight build, to use the CloudKit motion-event relay. The toggle is disabled until iCloud is reachable.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

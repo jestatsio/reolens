@@ -390,18 +390,22 @@ public actor CloudKitMotionEventPublisher: MotionEventPublisher {
 /// the iCloud container to keep AMFI happy on `swift build` /
 /// `swift run`).
 ///
-/// macOS detects this by looking for `Contents/embedded.provisionprofile`
-/// inside the running bundle. Developer-ID-signed release DMGs always
-/// embed a provisioning profile (Scripts/build-app.sh's ASC helper
-/// drops one in before signing — without it, AMFI rejects launch with
-/// -413). Ad-hoc-signed dev builds, by contrast, have no profile and
-/// also no iCloud entitlement: the two go together one-to-one. So
-/// "profile present" is an exact proxy for "iCloud entitlement
-/// present" without going near SecCode introspection of the running
-/// app — that path returns false-negatives intermittently under
-/// macOS 26's tightened sandbox + hardened-runtime regime, which
-/// silently regressed the relay on legitimately-capable release
-/// builds (recorded as `noEntitlement` in RelayDiagnostics).
+/// macOS detects this by looking for a distribution marker that only a
+/// fully-entitled, signed build carries:
+///   - `Contents/_MASReceipt/receipt` — App Store / TestFlight builds.
+///     Apple strips the provisioning profile and drops in a Mac App Store
+///     receipt during store distribution, so the profile check alone
+///     false-negatives on TestFlight (it wrongly disabled the relay +
+///     credential sync, reporting "iCloud isn't available on this build").
+///   - `Contents/embedded.provisionprofile` — Developer-ID / local signed
+///     builds (Scripts/build-app.sh embeds one before codesign).
+/// Ad-hoc-signed dev builds have neither marker and also no iCloud
+/// entitlement: marker and entitlement go together. So "marker present"
+/// is a sandbox-safe proxy for "iCloud entitlement present" without
+/// SecCode introspection of the running app — that path returns
+/// false-negatives intermittently under macOS 26's tightened sandbox +
+/// hardened-runtime regime (recorded as `noEntitlement` in
+/// RelayDiagnostics).
 ///
 /// iOS has no public API for reading the running task's entitlements
 /// and no provisioning-profile concept the same way — App Store /
@@ -421,7 +425,7 @@ public enum CloudKitAvailability {
         }
         let available: Bool
         #if os(macOS)
-        available = macOSHasEmbeddedProvisioningProfile()
+        available = macOSBundleCarriesEntitlements()
         #else
         available = true
         #endif
@@ -430,17 +434,26 @@ public enum CloudKitAvailability {
     }
 
     #if os(macOS)
-    /// `Contents/embedded.provisionprofile` is added by the release
-    /// build pipeline (Scripts/build-app.sh) before `codesign` and is
-    /// the simplest sandbox-safe signal that this bundle carries the
-    /// full Developer-ID entitlement set (including the iCloud
-    /// container). Reading the app's own bundle is always permitted
-    /// under the sandbox, so this probe doesn't false-negative the
-    /// way SecCode introspection did on macOS 26.
-    private static func macOSHasEmbeddedProvisioningProfile() -> Bool {
-        let url = Bundle.main.bundleURL
+    /// True when the running bundle carries the full entitlement set
+    /// (incl. the iCloud container), detected via a distribution marker:
+    /// a Mac App Store receipt (App Store / TestFlight) or an embedded
+    /// provisioning profile (Developer-ID / local signed). Reading the
+    /// app's own bundle is always sandbox-permitted, so this probe
+    /// doesn't false-negative the way SecCode introspection did on
+    /// macOS 26.
+    private static func macOSBundleCarriesEntitlements() -> Bool {
+        let fm = FileManager.default
+        // App Store / TestFlight: a Mac App Store receipt is present and
+        // the provisioning profile is stripped, so check the receipt
+        // first (the profile check alone false-negatived on TestFlight).
+        if let receipt = Bundle.main.appStoreReceiptURL,
+           fm.fileExists(atPath: receipt.path) {
+            return true
+        }
+        // Developer-ID / local signed builds embed a provisioning profile.
+        let profile = Bundle.main.bundleURL
             .appendingPathComponent("Contents/embedded.provisionprofile")
-        return FileManager.default.fileExists(atPath: url.path)
+        return fm.fileExists(atPath: profile.path)
     }
     #endif
 }
