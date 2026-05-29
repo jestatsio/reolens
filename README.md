@@ -309,7 +309,7 @@ Tests/                   — ~340 tests across 68 suites
 Scripts/                 — build, sign, App Store (TestFlight) upload,
                            icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),
-                           RELEASE.md + IOS_RELEASE.md runbooks
+                           RELEASE.md + IOS_RELEASE.md + MAC_RELEASE.md runbooks
 dist/homebrew/reolens.rb — Homebrew cask formula template
 .github/workflows/
   ci.yml                 — build + test + smoke launch + coverage gate
