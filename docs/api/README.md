@@ -60,6 +60,7 @@ outside the loopback / RFC-1918 LAN are refused.
 | `GET /v1/cameras/{id}/channels` | Channels on a camera |
 | `GET /v1/cameras/{id}/channels/{ch}/snapshot` | Current still (`image/jpeg`) |
 | `GET /v1/cameras/{id}/channels/{ch}/stream` | Stream references (mjpeg/rtsp/hls) |
+| `GET /v1/cameras/{id}/channels/{ch}/mjpeg` | Live MJPEG video (multipart) |
 | `POST /v1/cameras/{id}/channels/{ch}/ptz` | Pan/tilt/zoom |
 | `GET /v1/cameras/{id}/channels/{ch}/recordings` | Search recordings |
 | `GET /v1/cameras/{id}/channels/{ch}/recordings/{rid}/download` | Download a clip |

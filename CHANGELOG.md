@@ -13,8 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **A clean, local REST API for your cameras (macOS, opt-in).** Reolens now
   has a stable, versioned `/v1` HTTP API — list cameras, pull snapshots, move
-  PTZ, search recordings, and follow a live motion/AI event stream (SSE) — that
-  the app itself is built around. Turn it on for a Mac under Settings →
+  PTZ, search recordings, watch a live MJPEG video stream, and follow a live
+  motion/AI event stream (SSE) — that the app itself is built around. Turn it on for a Mac under Settings →
   Advanced → Developer Mode → "Local API". It binds to your LAN only (never the
   public internet), is secured with a bearer token, and is off by default.
   Built for Home Assistant, Shortcuts, scripts, and other local integrations.

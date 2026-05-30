@@ -205,6 +205,19 @@ struct GatewayRoutingTests {
         for await event in stream { received.append(event) }
         #expect(received.map(\.id) == ["E1"])
     }
+
+    @Test("mjpeg returns a live JPEG frame stream")
+    func mjpeg() async throws {
+        let outcome = await gateway.handle(request("GET", "/v1/cameras/CAM-1/channels/0/mjpeg"))
+        guard case .mjpeg(let stream) = outcome else {
+            Issue.record("expected an mjpeg stream")
+            return
+        }
+        var iterator = stream.makeAsyncIterator()
+        let first = await iterator.next()
+        #expect(first == Data([0xFF, 0xD8, 0xFF]))   // FakeCameraAPI.snapshotBytes
+        // Dropping the stream here cancels the poll loop (onTermination).
+    }
 }
 
 @Suite("APIGateway — query decoding")

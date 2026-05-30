@@ -97,6 +97,8 @@ public final class ReolensAPIServer: @unchecked Sendable {
                 try await connection.sendData(response.serialized())
             case .events(let stream):
                 try await streamEvents(connection, stream: stream)
+            case .mjpeg(let stream):
+                try await streamMJPEG(connection, stream: stream)
             }
         } catch {
             log.debug("connection ended: \(String(describing: error), privacy: .public)")
@@ -148,6 +150,27 @@ public final class ReolensAPIServer: @unchecked Sendable {
                   let line = String(data: json, encoding: .utf8) else { continue }
             do {
                 try await connection.sendData(Data("data: \(line)\n\n".utf8))
+            } catch {
+                break   // consumer disconnected
+            }
+        }
+    }
+
+    /// Serve a JPEG frame stream as `multipart/x-mixed-replace` — the format
+    /// browsers and Home Assistant render as a live MJPEG video.
+    private static func streamMJPEG(_ connection: NWConnection, stream: AsyncStream<Data>) async throws {
+        let boundary = "reolensframe"
+        let head = "HTTP/1.1 200 OK\r\n"
+            + "Content-Type: multipart/x-mixed-replace; boundary=\(boundary)\r\n"
+            + "Cache-Control: no-cache\r\n"
+            + "Connection: close\r\n\r\n"
+        try await connection.sendData(Data(head.utf8))
+        for await frame in stream {
+            var part = Data("--\(boundary)\r\nContent-Type: image/jpeg\r\nContent-Length: \(frame.count)\r\n\r\n".utf8)
+            part.append(frame)
+            part.append(Data("\r\n".utf8))
+            do {
+                try await connection.sendData(part)
             } catch {
                 break   // consumer disconnected
             }

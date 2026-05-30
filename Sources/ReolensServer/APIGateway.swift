@@ -27,6 +27,9 @@ public struct APIGateway: Sendable {
     public enum Outcome: Sendable {
         case response(HTTPResponse)
         case events(AsyncStream<EventResource>)
+        /// A live MJPEG video stream — each `Data` is one JPEG frame; the
+        /// connection serves them as `multipart/x-mixed-replace`.
+        case mjpeg(AsyncStream<Data>)
     }
 
     public func handle(_ request: HTTPRequest) async -> Outcome {
@@ -120,6 +123,8 @@ public struct APIGateway: Sendable {
                 let ref = try await api.streamRef(id, channel: channel, quality: quality)
                 return .envelope(self.fillStreamURLs(ref, id: id, channel: channel))
             }
+        case ("GET", "mjpeg"):
+            return .mjpeg(mjpegStream(id: id, channel: channel))
         case ("POST", "ptz"):
             guard let command = try? APIJSON.decoder.decode(PTZCommand.self, from: request.body) else {
                 return .response(.failure(.badRequest("Body must be a PTZ command, e.g. {\"op\":\"left\",\"speed\":32}")))
@@ -162,12 +167,35 @@ public struct APIGateway: Sendable {
     }
 
     /// Fill in the Reolens-hosted MJPEG URL (the facade owns its base URL; the
-    /// adapter can't know it). The snapshot endpoint doubles as the still
-    /// source; a true MJPEG multipart endpoint is a later phase.
+    /// adapter can't know it). Points at the live `/mjpeg` multipart endpoint —
+    /// the universal Home Assistant live-view path.
     private func fillStreamURLs(_ ref: StreamRef, id: CameraID, channel: Int) -> StreamRef {
         guard let base = publicBaseURL else { return ref }
-        let mjpeg = URL(string: "\(base)\(APIVersion.pathPrefix)/cameras/\(id)/channels/\(channel)/snapshot")
+        let mjpeg = URL(string: "\(base)\(APIVersion.pathPrefix)/cameras/\(id)/channels/\(channel)/mjpeg")
         return StreamRef(quality: ref.quality, codec: ref.codec, mjpeg: mjpeg, rtsp: ref.rtsp, hls: ref.hls)
+    }
+
+    /// A best-effort MJPEG frame source: polls `snapshot` on an interval until
+    /// the consumer disconnects (~1.4 fps — a gentle preview/motion stream that
+    /// doesn't hammer the camera, AGENTS.md §10). Reuses the already-
+    /// authenticated, credential-safe snapshot fetch rather than proxying RTSP.
+    private func mjpegStream(id: CameraID, channel: Int) -> AsyncStream<Data> {
+        let api = self.api
+        return AsyncStream { continuation in
+            let task = Task {
+                while !Task.isCancelled {
+                    do {
+                        let image = try await api.snapshot(id, channel: channel)
+                        continuation.yield(image.bytes)
+                    } catch {
+                        break   // camera unreachable — end the stream cleanly
+                    }
+                    try? await Task.sleep(for: .milliseconds(700))
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
     }
 
     // MARK: - Auth

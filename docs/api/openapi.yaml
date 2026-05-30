@@ -135,6 +135,26 @@ paths:
                   - properties:
                       data: { $ref: "#/components/schemas/StreamRef" }
 
+  /cameras/{id}/channels/{ch}/mjpeg:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+    get:
+      tags: [media]
+      summary: Live MJPEG video stream
+      description: >
+        A best-effort multipart MJPEG stream (~1.4 fps via snapshot polling).
+        The universal Home Assistant live-view source. Stays open until the
+        consumer disconnects.
+      responses:
+        "200":
+          description: multipart/x-mixed-replace JPEG frames
+          content:
+            multipart/x-mixed-replace:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/Upstream" }
+
   /cameras/{id}/channels/{ch}/ptz:
     parameters:
       - $ref: "#/components/parameters/CameraId"
