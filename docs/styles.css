@@ -177,42 +177,6 @@ h1 {
   color: var(--accent-bright);
 }
 
-.brew-snippet {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 8px 8px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-}
-.snippet-label {
-  color: var(--fg-quiet);
-}
-.brew-snippet code {
-  color: var(--fg);
-}
-.copy-btn {
-  background: rgba(76, 210, 255, 0.12);
-  color: var(--accent-bright);
-  border: 1px solid rgba(76, 210, 255, 0.3);
-  padding: 5px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  transition: background 0.15s ease;
-}
-.copy-btn:hover {
-  background: rgba(76, 210, 255, 0.2);
-}
-.copy-btn.copied {
-  background: #1d6c2c;
-  color: #c9f2c8;
-  border-color: #2d8a3e;
-}
-
 /* ── Sections ─────────────────────────────────────────────────────── */
 
 main {
@@ -450,8 +414,5 @@ main {
   }
   .section {
     padding: 60px 0;
-  }
-  .brew-snippet {
-    flex-wrap: wrap;
   }
 }

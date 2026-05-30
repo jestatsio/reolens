@@ -48,20 +48,14 @@
     </p>
 
     <div class="cta-row">
-      <a class="btn btn-primary" href="https://github.com/jestatsio/reolens/releases/latest/download/Reolens.dmg" id="download-btn" data-latest-dmg>
+      <a class="btn btn-primary" href="https://testflight.apple.com/join/2Pk2Anfz" rel="noopener">
         <svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0a1 1 0 0 1 1 1v8.59l2.3-2.3a1 1 0 1 1 1.4 1.42l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.42L7 9.59V1a1 1 0 0 1 1-1Zm-7 14a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H2a1 1 0 0 1-1-1Z"/></svg>
-        Download for macOS
+        Join the beta on TestFlight
       </a>
-      <a class="btn btn-secondary" href="#testflight">
-        Join the iPad / iPhone beta
+      <a class="btn btn-secondary" href="#download">
+        Other ways to install
       </a>
-      <span class="cta-meta">macOS 26+ · iPadOS / iOS 26+ · Free</span>
-    </div>
-
-    <div class="brew-snippet">
-      <span class="snippet-label">Or with Homebrew:</span>
-      <code id="brew-cmd">brew install --cask jestatsio/reolens/reolens</code>
-      <button class="copy-btn" data-copy="brew-cmd" aria-label="Copy command">Copy</button>
+      <span class="cta-meta">One app · macOS 26+ · iPadOS / iOS 26+ · Free</span>
     </div>
   </div>
 </header>
@@ -183,8 +177,8 @@
     </article>
     <article class="feature">
       <div class="feature-ico">↻</div>
-      <h3>Updates itself</h3>
-      <p>Sparkle in-app updates on Mac, TestFlight on iOS. We never phone home with anything else.</p>
+      <h3>Updates the Apple way</h3>
+      <p>One multiplatform app delivered through TestFlight and the App Store on Mac, iPad, and iPhone — updates arrive like any other Apple app. We never phone home with anything else.</p>
     </article>
     <article class="feature">
       <div class="feature-ico">☁︎</div>
@@ -225,31 +219,17 @@
 <section id="download" class="section section-download">
   <h2>Get it.</h2>
   <div class="download-grid">
-    <article class="download-card">
-      <h3>Direct download</h3>
-      <p>The signed, notarized DMG straight from GitHub Releases.</p>
-      <a class="btn btn-primary" href="https://github.com/jestatsio/reolens/releases/latest/download/Reolens.dmg" data-latest-dmg>
-        Download Reolens.dmg
-      </a>
-      <p class="card-meta">macOS 26+ · Apple Silicon and Intel · ~25 MB</p>
-    </article>
-    <article class="download-card">
-      <h3 id="install">Homebrew</h3>
-      <p>If you live in the terminal:</p>
-      <pre><code>brew install --cask jestatsio/reolens/reolens</code></pre>
-      <p class="card-meta">Auto-updates handled by Sparkle inside the app.</p>
-    </article>
     <article class="download-card" id="testflight">
-      <h3>iPad / iPhone (TestFlight)</h3>
-      <p>The iOS app is in TestFlight beta:</p>
+      <h3>Mac · iPad · iPhone (TestFlight)</h3>
+      <p>Reolens ships as one multiplatform app through TestFlight. Open the invite on each device and TestFlight installs the right Mac, iPad, or iPhone build for you.</p>
       <a class="btn btn-primary" href="https://testflight.apple.com/join/2Pk2Anfz" rel="noopener">
         Join the beta
       </a>
-      <p class="card-meta">iPadOS / iOS 26+ · Open invite</p>
+      <p class="card-meta">macOS 26+ · iPadOS / iOS 26+ · Open invite</p>
     </article>
     <article class="download-card">
-      <h3>Build from source</h3>
-      <p>Clone the repo and run:</p>
+      <h3 id="install">Build from source</h3>
+      <p>Prefer to build it yourself? Clone the repo and run:</p>
       <pre><code>./Scripts/build-app.sh run</code></pre>
       <p class="card-meta">macOS: Xcode 26 + Swift 6.2.<br>iOS: see <a href="https://github.com/jestatsio/reolens/blob/main/AppiOS/README.md" rel="noopener">AppiOS/README</a>.</p>
     </article>
