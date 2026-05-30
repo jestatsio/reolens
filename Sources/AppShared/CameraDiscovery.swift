@@ -387,16 +387,107 @@ package final class BonjourCollector: @unchecked Sendable {
 // scan() APIs; the macOS Add Camera sheet surfaces the detected subnet.
 public extension CameraDiscovery {
 
-    /// Find the /24 prefix of the Mac's primary IPv4 interface (en0/en1/en2
-    /// — any non-loopback, up-and-running interface with a valid v4 addr).
-    /// Returns e.g. `"192.168.1"` for a Mac at `192.168.1.42`.
+    /// Find the /24 prefix of the device's primary LAN interface — e.g.
+    /// `"192.168.1"` for a host at `192.168.1.42`.
+    ///
+    /// Enumerates every up, non-loopback IPv4 interface and ranks them so
+    /// the user's real Wi-Fi / Ethernet LAN wins over a secondary interface
+    /// — a cellular `pdp_ip0` (carriers commonly NAT behind `10.x`), a VPN
+    /// `utun*` tunnel, or a virtualization `bridge*` — any of which would
+    /// otherwise send the scanner sweeping the wrong subnet and finding no
+    /// cameras (GitHub #71). The previous implementation returned the first
+    /// interface in `10.0.0.0/8` OR `192.168.0.0/16` it happened to see, so
+    /// a 10.x VPN / cellular address enumerated ahead of the real LAN looked
+    /// to users like a hardcoded `10.0.0` scan.
     static func primarySubnetPrefix() -> String? {
+        selectPrimarySubnetPrefix(from: activeIPv4Interfaces())
+    }
+}
+
+// MARK: - Subnet selection (pure, unit-tested)
+
+extension CameraDiscovery {
+
+    /// One up, non-loopback IPv4 interface address read from `getifaddrs`.
+    /// Splitting the system read (`activeIPv4Interfaces`) from the choice
+    /// (`selectPrimarySubnetPrefix`) keeps the ranking logic pure and
+    /// testable without a live network stack.
+    struct InterfaceAddress: Sendable, Equatable {
+        let name: String
+        let ipv4: String
+    }
+
+    /// Choose the /24 prefix of the interface most likely to be the user's
+    /// real LAN. Pure + total: lower score wins, and ties resolve to the
+    /// earlier interface (the primary `en0` on Apple platforms).
+    static func selectPrimarySubnetPrefix(from interfaces: [InterfaceAddress]) -> String? {
+        var best: (score: Int, prefix: String)?
+        for iface in interfaces {
+            guard isUsableLANAddress(iface.ipv4),
+                  let prefix = subnetPrefix24(of: iface.ipv4) else { continue }
+            // Interface class is the dominant signal; the IP range is a weak
+            // tie-breaker (× 2 keeps class strictly ahead of range).
+            let score = interfaceClassRank(name: iface.name) * 2
+                + (isPrivateIPv4(iface.ipv4) ? 0 : 1)
+            if best == nil || score < best!.score {
+                best = (score, prefix)
+            }
+        }
+        return best?.prefix
+    }
+
+    /// Relative trust that an interface name is the real LAN — lower is
+    /// better. Mirrors Apple's BSD interface naming conventions.
+    static func interfaceClassRank(name: String) -> Int {
+        // Wi-Fi / Ethernet / Thunderbolt-bridge ethernet — the real LAN.
+        if name.hasPrefix("en") || name.hasPrefix("eth") { return 0 }
+        // Cellular, VPN tunnels, virtualization bridges, and Apple's
+        // direct-link mesh: all legitimate interfaces that are almost
+        // never where the user's cameras live.
+        let secondaryPrefixes = [
+            "pdp_ip",                                   // cellular (carrier 10.x NAT)
+            "utun", "ipsec", "ppp", "tun", "tap", "gif", "stf", // VPN tunnels
+            "bridge", "vmnet", "vnic", "vboxnet",       // virtualization
+            "awdl", "llw"                               // Apple Wireless Direct / low-latency
+        ]
+        if secondaryPrefixes.contains(where: name.hasPrefix) { return 2 }
+        return 1 // unknown — between the real LAN and the known-secondary set
+    }
+
+    /// `true` for an address we'd actually scan — excludes self-assigned
+    /// link-local (`169.254/16`) and loopback (`127/8`).
+    static func isUsableLANAddress(_ ipv4: String) -> Bool {
+        !ipv4.hasPrefix("169.254.") && !ipv4.hasPrefix("127.")
+    }
+
+    /// RFC 1918 private space: `10/8`, `172.16/12`, `192.168/16`.
+    static func isPrivateIPv4(_ ipv4: String) -> Bool {
+        if ipv4.hasPrefix("192.168.") { return true }
+        if ipv4.hasPrefix("10.") { return true }
+        let parts = ipv4.split(separator: ".")
+        if parts.count == 4, parts[0] == "172", let second = Int(parts[1]),
+           (16...31).contains(second) {
+            return true
+        }
+        return false
+    }
+
+    /// First three octets of a dotted-quad, or `nil` if it isn't one.
+    static func subnetPrefix24(of ipv4: String) -> String? {
+        let parts = ipv4.split(separator: ".")
+        guard parts.count == 4, parts.allSatisfy({ UInt8($0) != nil }) else { return nil }
+        return "\(parts[0]).\(parts[1]).\(parts[2])"
+    }
+
+    /// Read every up, non-loopback IPv4 interface from the live network
+    /// stack. The pure `selectPrimarySubnetPrefix(from:)` does the ranking.
+    private static func activeIPv4Interfaces() -> [InterfaceAddress] {
         var ifaddr: UnsafeMutablePointer<ifaddrs>? = nil
-        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return nil }
+        guard getifaddrs(&ifaddr) == 0, let first = ifaddr else { return [] }
         defer { freeifaddrs(first) }
 
+        var result: [InterfaceAddress] = []
         var ptr: UnsafeMutablePointer<ifaddrs>? = first
-        var candidate: String?
         while let cur = ptr {
             defer { ptr = cur.pointee.ifa_next }
             let flags = Int32(cur.pointee.ifa_flags)
@@ -404,34 +495,26 @@ public extension CameraDiscovery {
             guard sa.pointee.sa_family == UInt8(AF_INET) else { continue }
             guard (flags & IFF_UP) != 0, (flags & IFF_LOOPBACK) == 0 else { continue }
 
+            let name = String(cString: cur.pointee.ifa_name)
+
             var hostBuf = [CChar](repeating: 0, count: Int(NI_MAXHOST))
-            let result = getnameinfo(
+            let rc = getnameinfo(
                 sa,
                 socklen_t(MemoryLayout<sockaddr_in>.size),
                 &hostBuf, socklen_t(hostBuf.count),
                 nil, 0,
                 NI_NUMERICHOST
             )
-            guard result == 0 else { continue }
-            // Truncate at the null terminator getnameinfo writes; the
-            // tail of `hostBuf` is uninitialized garbage we don't
-            // want to interpret as part of the address. Swift 6
-            // deprecated `String(cString:)` for arrays in favor of
-            // the explicit slice + UTF8 decode.
+            guard rc == 0 else { continue }
+            // Truncate at the null terminator getnameinfo writes; the tail
+            // of `hostBuf` is uninitialized garbage we don't want to
+            // interpret as part of the address. Swift 6 deprecated
+            // `String(cString:)` for arrays in favor of slice + UTF8 decode.
             let nullTerminator = hostBuf.firstIndex(of: 0) ?? hostBuf.endIndex
             let ip = String(decoding: hostBuf[..<nullTerminator].map(UInt8.init), as: UTF8.self)
-            // Skip self-assigned (169.254.x.x) and weird ranges
-            if ip.hasPrefix("169.254.") { continue }
-            let parts = ip.split(separator: ".")
-            guard parts.count == 4 else { continue }
-            // Prefer typical home-network ranges; otherwise return whatever
-            // valid v4 address we got.
-            if ip.hasPrefix("192.168.") || ip.hasPrefix("10.") {
-                return "\(parts[0]).\(parts[1]).\(parts[2])"
-            }
-            candidate = "\(parts[0]).\(parts[1]).\(parts[2])"
+            result.append(InterfaceAddress(name: name, ipv4: ip))
         }
-        return candidate
+        return result
     }
 
     private static func ipNumeric(_ ip: String) -> UInt32? {
