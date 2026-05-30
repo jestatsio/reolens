@@ -95,6 +95,26 @@ public final class AppPreferences {
         }
     }
 
+    /// 0.9.0 — "Run the Local HTTP API on this Mac" opt-in. When on, this
+    /// Mac serves the read/control REST API (`docs/api/`) on the LAN,
+    /// secured with a bearer token. Off by default. macOS-only (iOS/iPadOS
+    /// can't hold a background listener) and surfaced only under Developer
+    /// Mode for now — see `LocalAPIController`. Device-local on purpose,
+    /// like `runAsHub`: each Mac decides independently and the choice never
+    /// rides iCloud onto another machine.
+    public var runLocalAPI: Bool {
+        didSet {
+            defaults.set(runLocalAPI, forKey: Self.runLocalAPIKey)
+        }
+    }
+
+    /// 0.9.0 — TCP port the Local API binds to. Default 8443.
+    public var localAPIPort: Int {
+        didSet {
+            defaults.set(localAPIPort, forKey: Self.localAPIPortKey)
+        }
+    }
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.developerMode = defaults.bool(forKey: Self.developerModeKey)
@@ -104,6 +124,9 @@ public final class AppPreferences {
         self.lastViewedCameraID = defaults.string(forKey: Self.lastViewedCameraKey)
             .flatMap(UUID.init(uuidString:))
         self.runAsHub = defaults.bool(forKey: Self.runAsHubKey)
+        self.runLocalAPI = defaults.bool(forKey: Self.runLocalAPIKey)
+        let storedPort = defaults.integer(forKey: Self.localAPIPortKey)
+        self.localAPIPort = storedPort == 0 ? 8443 : storedPort
     }
 
     // MARK: - Keys
@@ -115,6 +138,9 @@ public final class AppPreferences {
     /// Public so the macOS Settings "Run as Hub" toggle can bind to it
     /// via `@AppStorage` (mirrors `MotionEventRelaySettings.publisherEnabledKey`).
     public static let runAsHubKey = "com.reolens.runAsHub"
+    /// Public so the macOS Settings "Local API" toggle can bind via `@AppStorage`.
+    public static let runLocalAPIKey = "com.reolens.runLocalAPI"
+    public static let localAPIPortKey = "com.reolens.localAPIPort"
 
     // MARK: - Non-isolated peeks
 
@@ -136,5 +162,11 @@ public final class AppPreferences {
     /// where the live `CameraStore` writes.
     public static var runAsHubIsOn: Bool {
         UserDefaults.standard.bool(forKey: runAsHubKey)
+    }
+
+    /// Read the Run-Local-API flag from outside the MainActor (launch-time
+    /// lifecycle wiring). Reads `.standard` for the same reason the others do.
+    public static var runLocalAPIIsOn: Bool {
+        UserDefaults.standard.bool(forKey: runLocalAPIKey)
     }
 }

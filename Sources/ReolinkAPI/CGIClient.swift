@@ -134,6 +134,36 @@ public actor CGIClient {
         }
     }
 
+    /// Fetch a JPEG snapshot for `channel` over this session's pinned
+    /// transport, authenticated with the current login token.
+    ///
+    /// Returns the raw image bytes (typically `image/jpeg`). This is the
+    /// fetch path behind the Reolens API's `snapshot` endpoint; the live UI
+    /// uses the preview cache instead. The snapshot GET goes straight to the
+    /// device's `cmd=Snap` URL using the same TLS-pinned `URLSession` as the
+    /// CGI control plane, so self-signed-cert pinning (AGENTS.md §3) applies
+    /// identically.
+    public func snapshotData(channel: Int) async throws -> Data {
+        let activeToken = try await login()
+        let url = StreamURLs(credentials: credentials).snapshot(channel: channel, token: activeToken.name)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await urlSession.data(for: request)
+        } catch {
+            throw ReolinkClientError.transport(error)
+        }
+        guard let http = response as? HTTPURLResponse else {
+            throw ReolinkClientError.malformedResponse("non-HTTP response")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw ReolinkClientError.http(status: http.statusCode, body: nil)
+        }
+        return data
+    }
+
     /// Send a single command and return the raw response body bytes. Useful for
     /// diagnostics when the typed model doesn't match a particular firmware's
     /// JSON shape — you can inspect/log the actual fields.

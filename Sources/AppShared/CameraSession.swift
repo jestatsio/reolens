@@ -517,6 +517,25 @@ public final class CameraSession {
         case .other:
             break
         }
+        // Publish onto the API event bus (the /v1/events SSE stream) in
+        // addition to the notification gateway below. `.other` events carry no
+        // user-facing motion/AI semantics, so they're skipped here.
+        let busKind: MotionEventStream.Event.Kind?
+        switch event.kind {
+        case .motionStart: busKind = .motionStart
+        case .motionStop: busKind = .motionStop
+        case .ai(let tag): busKind = .ai(tag)
+        case .other: busKind = nil
+        }
+        if let busKind {
+            let busEvent = MotionEventStream.Event(
+                cameraID: self.entry.id,
+                channel: Int(event.channelID),
+                kind: busKind,
+                timestamp: entry.timestamp
+            )
+            Task { await MotionEventStream.shared.publish(busEvent) }
+        }
         // Fan the event out to the shared notification gateway. The
         // notifier itself decides whether to actually post (enabled,
         // permission, throttle, per-kind preferences) — we always hand it

@@ -33,6 +33,16 @@ let package = Package(
         // for the Reolink P2P service. Depends on ReolinkBcUdp
         // for the wire codec.
         .library(name: "ReolinkP2P", targets: ["ReolinkP2P"]),
+        // 0.8.x — ReolensCore: the clean, Reolink-agnostic public API
+        // contract (resource DTOs + the `CameraAPI` protocol). Zero deps;
+        // the in-process implementation lives in AppShared and the HTTP
+        // facade in ReolensServer. See docs/api/.
+        .library(name: "ReolensCore", targets: ["ReolensCore"]),
+        // 0.8.x — ReolensServer: hand-rolled NWListener HTTP/1.1 + SSE
+        // facade over the `CameraAPI` contract. Depends only on
+        // ReolensCore; the app injects the live implementation. See
+        // docs/api/.
+        .library(name: "ReolensServer", targets: ["ReolensServer"]),
         .library(name: "AppShared", targets: ["AppShared"]),
         // 0.6.4 — Minimal watchOS-facing surface used by the
         // companion Watch App target in `ReolensiOS.xcodeproj`.
@@ -127,6 +137,19 @@ let package = Package(
             ]
         ),
         .target(
+            // 0.8.x — public API contract. Pure value types (resource
+            // DTOs) + the `CameraAPI` protocol. Foundation-only, zero
+            // dependencies, so it is the stable surface the app and
+            // external consumers are both built on. The in-process
+            // implementation (`LiveCameraAPI`) lives in AppShared; the
+            // HTTP facade in ReolensServer. See docs/api/.
+            name: "ReolensCore",
+            path: "Sources/ReolensCore",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .target(
             // Cross-platform app domain layer shared by the macOS app and
             // the iPad/iPhone app: camera persistence, sessions, discovery,
             // notifications, downloads, Keychain. Anything that does NOT
@@ -137,8 +160,21 @@ let package = Package(
             // Declared explicitly here so a clean build resolves
             // cleanly and the iOS Xcode build's dependency-scan
             // warning stops firing.
-            dependencies: ["ReolinkAPI", "ReolinkStreaming", "ReolinkBaichuan"],
+            dependencies: ["ReolinkAPI", "ReolinkStreaming", "ReolinkBaichuan", "ReolensCore"],
             path: "Sources/AppShared",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .target(
+            // 0.8.x — local HTTP facade. Hand-rolled HTTP/1.1 + SSE on
+            // Network.framework (NWListener), preserving the package's
+            // zero-dependency posture. Generic over `any CameraAPI`, so
+            // it's exercised in tests against an in-memory fake with no
+            // sockets and no cameras. See docs/api/.
+            name: "ReolensServer",
+            dependencies: ["ReolensCore"],
+            path: "Sources/ReolensServer",
             swiftSettings: [
                 .enableUpcomingFeature("ExistentialAny")
             ]
@@ -180,7 +216,9 @@ let package = Package(
                 "ReolinkAPI",
                 "ReolinkStreaming",
                 "ReolinkBaichuan",
-                "AppShared"
+                "AppShared",
+                // 0.9.0 — macOS hosts the opt-in Local HTTP API (LocalAPIController).
+                "ReolensServer"
             ],
             path: "App",
             // 0.5.0 — Widgets/ is a separate WidgetKit app-extension
@@ -243,6 +281,23 @@ let package = Package(
             name: "ReolinkP2PTests",
             dependencies: ["ReolinkP2P", "ReolinkBcUdp"],
             path: "Tests/ReolinkP2PTests"
+        ),
+        .testTarget(
+            // 0.8.x — ReolensCore contract round-trips. The DTOs are a
+            // public wire format, so Codable encode→decode identity plus
+            // stable JSON-key assertions pin the shape against
+            // docs/api/openapi.yaml.
+            name: "ReolensCoreTests",
+            dependencies: ["ReolensCore"],
+            path: "Tests/ReolensCoreTests"
+        ),
+        .testTarget(
+            // 0.8.x — HTTP facade routing/auth/SSE, exercised against an
+            // in-memory fake `CameraAPI` plus a loopback end-to-end smoke
+            // test on an ephemeral port.
+            name: "ReolensServerTests",
+            dependencies: ["ReolensServer", "ReolensCore"],
+            path: "Tests/ReolensServerTests"
         ),
         // End-to-end integration test target. Drives the full
         // ReolinkAPI client through a mocked Reolink device using

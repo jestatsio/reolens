@@ -1,6 +1,7 @@
 import SwiftUI
 import UserNotifications
 import AppShared
+import AppKit
 
 /// macOS Settings window. 0.6.1 reorganized this into the seven
 /// shared `Settings*Bucket` views; 0.6.2 deletes the legacy 5-tab
@@ -21,7 +22,9 @@ struct SettingsView: View {
     @AppStorage(MenuBarController.menuBarModeKey) private var menuBarMode: Bool = false
     @AppStorage(MenuBarController.launchAtLoginKey) private var launchAtLogin: Bool = false
     @AppStorage(AppPreferences.runAsHubKey) private var runAsHub: Bool = false
+    @AppStorage(AppPreferences.runLocalAPIKey) private var runLocalAPI: Bool = false
     @State private var hubEngine: HubEngine?
+    @State private var apiToken: String?
     @Environment(CameraStore.self) private var store
 
     var body: some View {
@@ -99,6 +102,11 @@ struct SettingsView: View {
     private var advancedTab: some View {
         Form {
             SettingsAdvancedBucket(showingDiagnostics: $showingDiagnostics)
+            // 0.9.0 — Local API lives under Developer Mode for now. Flip on
+            // "Developer Mode" in the Advanced bucket to reveal it.
+            if store.developerMode {
+                localAPISection
+            }
         }
         .formStyle(.grouped)
     }
@@ -192,5 +200,57 @@ struct SettingsView: View {
                     .foregroundStyle(.tertiary)
             }
         }
+    }
+
+    /// 0.9.0 — macOS-only "Local API" section, shown under Developer Mode.
+    /// Opt-in LAN HTTP API (`docs/api/`) secured with a bearer token; off by
+    /// default. No iOS analog (iPhone/iPad can't hold a background listener) —
+    /// AGENTS.md §1 carve-out, mirroring the Hub.
+    private var localAPISection: some View {
+        Section("Local API") {
+            Toggle("Enable the Local HTTP API", isOn: $runLocalAPI)
+                .onChange(of: runLocalAPI) { _, newValue in
+                    LocalAPIController.shared.setEnabled(newValue, store: store)
+                    apiToken = newValue ? LocalAPITokenStore.current() : nil
+                }
+            Text("Serves a read/control REST API for your cameras on this Mac's LAN, secured with a bearer token. Off by default. For Home Assistant, scripts, and other local integrations — never the public internet. macOS only; see docs/api/.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            if runLocalAPI {
+                LabeledContent("URL") {
+                    Text("http://\(Self.lanHost):\(store.preferences.localAPIPort)/v1")
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                }
+                if let token = apiToken {
+                    LabeledContent("Token") {
+                        Text(token)
+                            .font(.caption.monospaced())
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .textSelection(.enabled)
+                    }
+                    HStack {
+                        Button("Copy Token") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(token, forType: .string)
+                        }
+                        Button("Regenerate") {
+                            apiToken = LocalAPITokenStore.regenerate()
+                            LocalAPIController.shared.restart(store: store)
+                        }
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .onAppear { apiToken = LocalAPITokenStore.current() }
+    }
+
+    /// This Mac's LAN-reachable host name (e.g. "Mac.local"), shown so the
+    /// user can point another device at the API. Falls back to localhost.
+    private static var lanHost: String {
+        let name = ProcessInfo.processInfo.hostName
+        return name.isEmpty ? "localhost" : name
     }
 }

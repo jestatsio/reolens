@@ -1,0 +1,446 @@
+openapi: 3.1.0
+info:
+  title: Reolens Local API
+  version: "1.0.0"
+  description: >
+    Clean, Reolink-agnostic REST API for the cameras Reolens manages.
+    LAN-local, bearer-authenticated, opt-in. The `ReolensCore` Swift target is
+    the source of truth for these schemas; see docs/api/README.md.
+  license:
+    name: See repository LICENSE
+
+servers:
+  - url: "http://localhost:8443/v1"
+    description: Default loopback binding (port configurable in the app).
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: system
+  - name: cameras
+  - name: media
+  - name: control
+  - name: recordings
+  - name: settings
+  - name: events
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness and summary
+      security: []   # the one unauthenticated route
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/SystemHealth" }
+
+  /cameras:
+    get:
+      tags: [cameras]
+      summary: List cameras
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/CameraResource" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /cameras/{id}:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+    get:
+      tags: [cameras]
+      summary: Get one camera
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/CameraResource" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cameras/{id}/channels:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+    get:
+      tags: [cameras]
+      summary: List channels on a camera
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/ChannelResource" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cameras/{id}/channels/{ch}/snapshot:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+    get:
+      tags: [media]
+      summary: Current still image
+      responses:
+        "200":
+          description: JPEG bytes
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/Upstream" }
+
+  /cameras/{id}/channels/{ch}/stream:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+      - name: quality
+        in: query
+        schema: { $ref: "#/components/schemas/StreamQuality" }
+    get:
+      tags: [media]
+      summary: Live-video stream references
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/StreamRef" }
+
+  /cameras/{id}/channels/{ch}/ptz:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+    post:
+      tags: [control]
+      summary: Pan / tilt / zoom
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PTZCommand" }
+      responses:
+        "202": { description: Accepted (command dispatched) }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cameras/{id}/channels/{ch}/recordings:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+      - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+      - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      - name: types
+        in: query
+        description: Comma-separated detection categories.
+        schema: { type: string }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer } }
+    get:
+      tags: [recordings]
+      summary: Search recordings
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: "#/components/schemas/RecordingResource" }
+                      meta: { $ref: "#/components/schemas/Meta" }
+
+  /cameras/{id}/channels/{ch}/recordings/{rid}/download:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+      - { name: rid, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [recordings]
+      summary: Download a recording clip
+      responses:
+        "200":
+          description: Clip bytes
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        "302": { description: Redirect to a download URL }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cameras/{id}/channels/{ch}/settings:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+      - $ref: "#/components/parameters/Channel"
+    get:
+      tags: [settings]
+      summary: Read channel settings
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/ChannelSettings" }
+    patch:
+      tags: [settings]
+      summary: Partial settings update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChannelSettingsPatch" }
+      responses:
+        "200":
+          description: Resulting settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/ChannelSettings" }
+
+  /events:
+    get:
+      tags: [events]
+      summary: Live motion / AI events (Server-Sent Events)
+      parameters:
+        - { name: cameraId, in: query, schema: { type: string } }
+        - { name: channel, in: query, schema: { type: integer } }
+        - { name: detections, in: query, schema: { type: string }, description: Comma-separated categories. }
+      responses:
+        "200":
+          description: An SSE stream; each `data:` line is an EventResource JSON.
+          content:
+            text/event-stream:
+              schema: { $ref: "#/components/schemas/EventResource" }
+
+  /openapi.json:
+    get:
+      tags: [system]
+      summary: This contract as JSON
+      security: []
+      responses:
+        "200": { description: OpenAPI document }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  parameters:
+    CameraId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    Channel:
+      name: ch
+      in: path
+      required: true
+      schema: { type: integer }
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    BadRequest:
+      description: Malformed request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    Upstream:
+      description: Camera unreachable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+
+  schemas:
+    Envelope:
+      type: object
+      properties:
+        data: {}
+        meta: { $ref: "#/components/schemas/Meta" }
+        error: { $ref: "#/components/schemas/APIError" }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error: { $ref: "#/components/schemas/APIError" }
+    Meta:
+      type: object
+      properties:
+        count: { type: integer }
+        nextCursor: { type: string }
+    APIError:
+      type: object
+      required: [code, message, status]
+      properties:
+        code: { type: string, example: camera_not_found }
+        message: { type: string }
+        status: { type: integer, example: 404 }
+
+    DeviceKind: { type: string, enum: [camera, nvr, hub] }
+    StreamQuality: { type: string, enum: [main, sub] }
+    DetectionKind:
+      type: string
+      enum: [motion, person, vehicle, pet, face, package, visitor, other]
+
+    CameraResource:
+      type: object
+      required: [id, displayName, kind, channelCount, online]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        kind: { $ref: "#/components/schemas/DeviceKind" }
+        model: { type: string }
+        firmwareVersion: { type: string }
+        channelCount: { type: integer }
+        online: { type: boolean }
+        host: { type: string }
+
+    ChannelResource:
+      type: object
+      required: [id, online, isDualLens, isBatteryPowered, capabilities]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        online: { type: boolean }
+        isDualLens: { type: boolean }
+        isBatteryPowered: { type: boolean }
+        battery: { $ref: "#/components/schemas/BatteryInfo" }
+        capabilities: { $ref: "#/components/schemas/ChannelCapabilities" }
+    BatteryInfo:
+      type: object
+      required: [percent, charging, pluggedIn]
+      properties:
+        percent: { type: integer }
+        charging: { type: boolean }
+        pluggedIn: { type: boolean }
+    ChannelCapabilities:
+      type: object
+      required: [ptz, talk, ai]
+      properties:
+        ptz: { type: boolean }
+        talk: { type: boolean }
+        ai:
+          type: array
+          items: { $ref: "#/components/schemas/DetectionKind" }
+
+    StreamRef:
+      type: object
+      required: [quality]
+      properties:
+        quality: { $ref: "#/components/schemas/StreamQuality" }
+        codec: { type: string, enum: [h264, h265] }
+        mjpeg: { type: string, format: uri }
+        rtsp: { type: string, format: uri, description: "Embeds credentials; only present on explicit opt-in." }
+        hls: { type: string, format: uri, description: "Reserved; null in v1." }
+
+    PTZCommand:
+      type: object
+      required: [op]
+      properties:
+        op:
+          type: string
+          enum: [left, right, up, down, leftUp, leftDown, rightUp, rightDown,
+                 zoomIn, zoomOut, focusNear, focusFar, stop, autoScan,
+                 toPreset, startPatrol, stopPatrol]
+        speed: { type: integer, minimum: 1, maximum: 63 }
+        presetID: { type: integer }
+
+    RecordingResource:
+      type: object
+      required: [id, start, end, durationSeconds, triggers]
+      properties:
+        id: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        durationSeconds: { type: number }
+        triggers:
+          type: array
+          items: { $ref: "#/components/schemas/DetectionKind" }
+        sizeBytes: { type: integer }
+        width: { type: integer }
+        height: { type: integer }
+
+    ChannelSettings:
+      type: object
+      properties:
+        name: { type: string }
+        osd: { $ref: "#/components/schemas/OSDSettings" }
+        notificationsEnabled: { type: boolean }
+    ChannelSettingsPatch:
+      type: object
+      properties:
+        name: { type: string }
+        osd: { $ref: "#/components/schemas/OSDSettings" }
+        notificationsEnabled: { type: boolean }
+    OSDSettings:
+      type: object
+      properties:
+        showName: { type: boolean }
+        showDate: { type: boolean }
+
+    EventResource:
+      type: object
+      required: [id, cameraID, channel, kind, timestamp]
+      properties:
+        id: { type: string }
+        cameraID: { type: string }
+        channel: { type: integer }
+        kind: { type: string, enum: [motionStart, motionStop, ai] }
+        detection: { $ref: "#/components/schemas/DetectionKind" }
+        timestamp: { type: string, format: date-time }
+
+    SystemHealth:
+      type: object
+      required: [apiVersion, cameraCount, onlineCount]
+      properties:
+        apiVersion: { type: string, example: v1 }
+        appVersion: { type: string }
+        cameraCount: { type: integer }
+        onlineCount: { type: integer }
+        hubRunning: { type: boolean }
