@@ -42,6 +42,11 @@ struct ReolensApp: App {
                     // shared CameraStore). Idempotent — safe alongside the
                     // toggle path.
                     HubController.shared.syncFromDefaults(store: store)
+                    // 0.9.0 — if the Local HTTP API is enabled on this Mac,
+                    // bring up the LAN server now (mirrors the Hub start
+                    // above). Off by default; gated behind Developer Mode in
+                    // Settings. See LocalAPIController / docs/api/.
+                    LocalAPIController.shared.syncFromDefaults(store: store)
                     // 0.7.0 — if Apple TV credential sync is on, re-publish
                     // the encrypted credentials so the TV picks up any
                     // password changes made on this Mac.

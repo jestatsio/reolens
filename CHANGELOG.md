@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-30
+
+### Added
+
+- **A clean, local REST API for your cameras (macOS, opt-in).** Reolens now
+  has a stable, versioned `/v1` HTTP API — list cameras, pull snapshots, move
+  PTZ, search recordings, watch a live MJPEG video stream, and follow a live
+  motion/AI event stream (SSE) — that the app itself is built around. Turn it on for a Mac under Settings →
+  Advanced → Developer Mode → "Local API". It binds to your LAN only (never the
+  public internet), is secured with a bearer token, and is off by default.
+  Built for Home Assistant, Shortcuts, scripts, and other local integrations.
+  Hand-rolled on Network.framework — no new dependencies, and no Reolens server
+  (it runs on your own Mac). macOS-only for now (iPhone/iPad can't hold a
+  background listener), mirroring the Hub. Full contract in `docs/api/`.
+
 ## [0.8.3] — 2026-05-29
 
 ### Fixed
