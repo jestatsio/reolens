@@ -63,42 +63,32 @@
 <main>
 
 <section id="whats-new" class="section section-quiet">
-  <h2>New in 0.6.0</h2>
-  <p class="section-sub">The largest release the project has shipped. Five storylines pulled together by a single piece of plumbing.</p>
+  <h2>New in 0.8</h2>
+  <p class="section-sub">The 0.8 line brings Reolens for Mac to the App Store — one multiplatform app across every Apple device — and rebuilds notifications around independent per-category controls.</p>
   <div class="features-grid">
     <article class="feature">
-      <div class="feature-ico">🔔</div>
-      <h3>iOS push notifications, fixed</h3>
-      <p>Settings → Notifications → "Receive motion events from other devices" is now reachable, defaults on after permission, and comes with a Diagnostics screen + a 1,000-record rolling Notification log.</p>
+      <div class="feature-ico">🍎</div>
+      <h3>On the Mac App Store</h3>
+      <p>Reolens for Mac now installs from the App Store and TestFlight instead of a downloaded DMG. Updates arrive the App Store way — the old Developer-ID DMG and Sparkle auto-updater are retired.</p>
     </article>
     <article class="feature">
-      <div class="feature-ico">🔎</div>
-      <h3>Cross-day AI search</h3>
-      <p>Type "packages this week" or "vehicles yesterday at the driveway" in All Recordings. On Apple Intelligence devices the prompt runs through an on-device FoundationModels plan; everywhere else, a deterministic regex parser. Recording data never crosses the model boundary.</p>
+      <div class="feature-ico">📲</div>
+      <h3>One app, every Apple device</h3>
+      <p>Mac, iPad, and iPhone now share a single multiplatform App Store record and bundle id. Your camera list and motion history live in iCloud and carry over automatically; passwords stay per-device in Keychain.</p>
     </article>
     <article class="feature">
-      <div class="feature-ico">📅</div>
-      <h3>Visual schedule editors</h3>
-      <p>Two surfaces share a reusable 7×24 weekly grid: one for the camera's recording schedule, one for motion-detection alarms — with optional per-AI-tag overrides ("quiet vehicles overnight, still alert on people").</p>
+      <div class="feature-ico">🧩</div>
+      <h3>Per-category notifications</h3>
+      <p>Notification settings became one list of independent switches — Motion, Person, Vehicle, Pet, and more. Turn on exactly the categories you want; each fires on its own, replacing the old AI-vs-Motion either/or.</p>
     </article>
     <article class="feature">
-      <div class="feature-ico">🔖</div>
-      <h3>Bookmarks that actually download</h3>
-      <p>Background downloads survive relaunches via a launch-time reconciler. Expired-token responses no longer get saved as broken .mp4 files. Every row has an explicit Delete with a confirmation dialog.</p>
-    </article>
-    <article class="feature">
-      <div class="feature-ico">🧱</div>
-      <h3>Architecture pass</h3>
-      <p>RecordingsLoader, PollManager, and a three-way CameraStore split (Preferences / Keychain / List) make the recordings tab faster (no stale-data races on rapid date flips), the polling lifecycle testable in isolation, and future surfaces cheaper to build.</p>
-    </article>
-    <article class="feature">
-      <div class="feature-ico">✨</div>
-      <h3>UX polish</h3>
-      <p>Battery cameras auto-wake on detail open. iOS / iPadOS restore the last-viewed camera on cold launch. Empty-state messages pin to the top instead of centering in a void. Lazy bookmark enumeration keeps the recordings tab responsive.</p>
+      <div class="feature-ico">🔕</div>
+      <h3>Mutes that sync across devices</h3>
+      <p>Silence a category on your Mac and it stops pushing to your iPhone and iPad too — the cross-device relay now honors the same per-category toggles as the local banner, so a mute means quiet everywhere.</p>
     </article>
   </div>
   <p class="section-sub" style="text-align:center; margin-top: 1.5rem;">
-    <a href="https://github.com/jestatsio/reolens/blob/main/CHANGELOG.md" rel="noopener">Full 0.6.0 changelog →</a>
+    <a href="https://github.com/jestatsio/reolens/blob/main/CHANGELOG.md" rel="noopener">Full changelog →</a>
   </p>
 </section>
 
