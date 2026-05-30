@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="https://reolens.io">Website</a> ·
-  <a href="https://github.com/jestatsio/reolens/releases/latest/download/Reolens.dmg">Download</a> ·
+  <a href="https://testflight.apple.com/join/c815tbVE">TestFlight</a> ·
   <a href="#install">Install</a> ·
   <a href="CHANGELOG.md">What's new</a> ·
   <a href="https://github.com/jestatsio/reolens/issues">Issues</a>
@@ -42,30 +42,19 @@ analytics, no telemetry, no accounts.
 
 ## Install
 
-### macOS — Homebrew (recommended)
+### Mac · iPad · iPhone — TestFlight
 
-```sh
-brew tap jestatsio/reolens
-brew install --cask reolens
-```
-
-Updates are handled by Sparkle inside the app — no `brew upgrade` needed.
-
-### macOS — Direct download
-
-Grab the signed, notarized DMG from the [latest release](https://github.com/jestatsio/reolens/releases/latest):
+Reolens ships as one multiplatform app through TestFlight — Mac, iPad, and
+iPhone share a single App Store record. Open the invite on each device and
+TestFlight installs the right build:
 
 ```
-https://github.com/jestatsio/reolens/releases/latest/download/Reolens.dmg
+https://testflight.apple.com/join/c815tbVE
 ```
 
-Drag **Reolens.app** to your Applications folder and launch.
-
-### iPad / iPhone — TestFlight
-
-```
-https://testflight.apple.com/join/2Pk2Anfz
-```
+Requires macOS 26+ / iPadOS / iOS 26+. The Mac app moved to the App Store /
+TestFlight in 0.8; the old Developer-ID DMG and Homebrew/Sparkle path is
+retired.
 
 ### Build from source
 
@@ -196,7 +185,7 @@ cameras by inviting them to your tailnet.
 - **Shortcuts & Siri** — "Hey Siri, open the Front Door camera in
   Reolens." Three App Intents: Open Camera, Show Today's Events,
   Mute Camera Notifications.
-- **Auto-updates** — Sparkle in-app on macOS, TestFlight on iOS.
+- **Auto-updates** — App Store and TestFlight on every Apple platform.
 
 For the full feature surface and the per-release history, see
 [CHANGELOG.md](CHANGELOG.md).
@@ -230,9 +219,7 @@ Reolens runs entirely on your devices. The network surface is:
 - iCloud Drive — syncs your camera list across *your own* Apple devices
 - iCloud CloudKit — relays motion-event pushes between your devices
   (private database, never touches Apple's public surface)
-- `reolens.io/appcast.xml` (macOS only, for Sparkle update checks; can
-  be disabled in Settings)
-- Apple's TestFlight / App Store (iOS, for app updates)
+- Apple's TestFlight / App Store (iOS and macOS, for app updates)
 
 That's it. No third-party analytics. No remote crash reporting. No
 telemetry. No accounts.
@@ -310,7 +297,6 @@ Scripts/                 — build, sign, App Store (TestFlight) upload,
                            icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),
                            RELEASE.md + IOS_RELEASE.md + MAC_RELEASE.md runbooks
-dist/homebrew/reolens.rb — Homebrew cask formula template
 .github/workflows/
   ci.yml                 — build + test + smoke launch + coverage gate
                            + iOS XCUITest job
@@ -342,10 +328,10 @@ See [docs/RELEASE.md](docs/RELEASE.md) for the full runbook. Short version:
    [AppiOS/project.yml](AppiOS/project.yml). The check-versions gate
    blocks PRs that drift.
 2. Add a section to [CHANGELOG.md](CHANGELOG.md).
-3. `git tag v0.6.0 && git push --tags`.
+3. `git tag v0.8.4 && git push --tags`.
 4. Watch [.github/workflows/release.yml](.github/workflows/release.yml)
-   build, notarize, package the DMG, regenerate the appcast, and
-   publish.
+   build, sign, and upload the Mac and iOS apps to TestFlight / the App
+   Store, then publish a GitHub Release.
 
 ## Contributing
 
