@@ -28,7 +28,7 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # 0.5.0 floor: Package.swift declares `swift-tools-version: 6.2`
       # plus `.macOS(.v26)` / `.iOS(.v26)`, so we need Xcode 26 (which
@@ -159,7 +159,7 @@ jobs:
     needs: build-test
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Select latest Xcode 26
         run: |
@@ -251,7 +251,7 @@ jobs:
     needs: build-test
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       # Use a non-beta Xcode 26.x with the iOS generic device platform
       # installed. On the macos-26 runner, Xcode 26.5 currently ships the
@@ -424,7 +424,7 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install SwiftLint
         run: brew install swiftlint
