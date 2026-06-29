@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Cameras whose web API is off (newer Reolink firmware) now connect, and a
+  clear message explains the rest.** Reolink's 3.1.0.x firmware (e.g. the
+  CX410) ships with the HTTP/HTTPS API disabled by default and only the
+  Baichuan port (9000) open, so auto-detect couldn't see the camera and a
+  manual add failed with an unhelpful "Couldn't reach the camera." Three
+  changes (GitHub #76): auto-detect now probes **HTTPS (443)** alongside
+  HTTP, so an HTTPS-only camera shows up in the scan; a manual/auto add that
+  hits a **refused HTTP port** transparently retries over **HTTPS:443**
+  before giving up; and when the camera still refuses every web port, the
+  error now tells you exactly what to do — *enable HTTP/HTTPS under the
+  Reolink app's Network → Advanced → Port Settings and turn off Privacy
+  Mode*. No credentials or hostnames appear in the message (AGENTS.md §3).
+
 ## [0.9.0] — 2026-05-30
 
 ### Added

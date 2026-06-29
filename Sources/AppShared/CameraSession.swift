@@ -100,6 +100,12 @@ public final class CameraSession {
     /// app run.
     private var uidCapturedThisSession: Bool = false
     private var connectGeneration: Int = 0
+    /// One-shot guard so a single `connect()` only ever tries the
+    /// HTTP→HTTPS transport upgrade once. Newer Reolink firmware (3.1.0.x)
+    /// disables plain HTTP and leaves only HTTPS reachable; when an HTTP
+    /// attempt is refused at the port we rebuild the client over HTTPS:443
+    /// and retry. Reset at the start of every fresh connect. GitHub #76.
+    private var usingHTTPSFallback = false
     /// 0.6.0 Slice 14 — polling lifecycle extracted to `PollManager`.
     /// Replaces the prior `pollTask` + `foregroundCGIOperationDepth +
     /// shouldResumePollingAfterForegroundCGI` triad. `@Observation
@@ -194,6 +200,7 @@ public final class CameraSession {
     private func runConnect(policy: ConnectRetryPolicy) async {
         status = .connecting
         connectionAttempt = 0
+        usingHTTPSFallback = false
         let deadline = Date().addingTimeInterval(policy.overallDeadlineSeconds)
 
         // iOS only: a missing Local Network permission silently
@@ -231,11 +238,13 @@ public final class CameraSession {
             status = .error(reason)
             connectionStage = .failed(reason: reason)
         case .unreachable(let err):
-            status = .error(String(describing: err))
-            connectionStage = .failed(reason: "Couldn't reach the camera (\(String(describing: err))). Try again.")
+            let reason = Self.connectionFailureMessage(for: err)
+            status = .error(reason)
+            connectionStage = .failed(reason: reason)
         case .deadlineExceeded(let err?):
-            status = .error(String(describing: err))
-            connectionStage = .failed(reason: "Couldn't reach the camera (\(String(describing: err))). Try again.")
+            let reason = Self.connectionFailureMessage(for: err)
+            status = .error(reason)
+            connectionStage = .failed(reason: reason)
         case .deadlineExceeded(nil):
             status = .error("Couldn't reach the camera")
             connectionStage = .failed(reason: "Couldn't reach the camera. Try again.")
@@ -302,6 +311,17 @@ public final class CameraSession {
                     return .authFailure(reason: "Authentication failed — check the password.")
                 }
                 log.warning("connect attempt \(attempt) failed: \(error.localizedDescription, privacy: .public)")
+                // Newer Reolink firmware (3.1.0.x, e.g. CX410) ships with the
+                // plain-HTTP API disabled and only HTTPS reachable. When an
+                // HTTP attempt is refused *at the port* (cannotConnectToHost),
+                // transparently rebuild the transport over HTTPS:443 and retry
+                // once before burning the rest of the attempt budget. GitHub
+                // #76.
+                if Self.suggestsClosedAPIPort(error), !credentials.useHTTPS, !usingHTTPSFallback {
+                    upgradeTransportToHTTPS()
+                    log.notice("HTTP API port refused; retrying over HTTPS:443")
+                    continue
+                }
                 if attempt >= policy.maxAttempts { break }
                 let backoff = policy.backoffSeconds(attempt: attempt)
                 // Don't sleep past the overall deadline.
@@ -372,6 +392,59 @@ public final class CameraSession {
             }
         }
         return false
+    }
+
+    /// Transport-level signal that the camera *answered* but refused the
+    /// CGI port — i.e. its HTTP/HTTPS API is turned off — as opposed to the
+    /// host being unreachable (timeout / no route / wrong IP). Newer
+    /// Reolink firmware (3.1.0.x, e.g. CX410) ships these ports disabled by
+    /// default with only Baichuan (9000) open, so a refused port is the
+    /// strongest in-app signal that the user must re-enable HTTP/HTTPS on
+    /// the device. `nonisolated` + pure so a regression test can pin the
+    /// mapping without a live network. GitHub #76.
+    nonisolated static func suggestsClosedAPIPort(_ error: any Error) -> Bool {
+        if let urlError = error as? URLError {
+            return urlError.code == .cannotConnectToHost
+        }
+        // `CGIClient.snapshotData` wraps transport errors; `login()` throws
+        // the raw `URLError`. Handle both so the classifier is robust to the
+        // call site the failure came from.
+        if let reolink = error as? ReolinkClientError,
+           case let .transport(inner) = reolink,
+           let urlError = inner as? URLError {
+            return urlError.code == .cannotConnectToHost
+        }
+        return false
+    }
+
+    /// Build the user-facing reason for a failed connect. Keeps the
+    /// camera's host and credentials out of the string (AGENTS.md §3) — the
+    /// raw transport error is logged separately at `.public`. `nonisolated`
+    /// + pure so the wording is unit-pinned. GitHub #76.
+    nonisolated static func connectionFailureMessage(for error: any Error) -> String {
+        if suggestsClosedAPIPort(error) {
+            return "The camera refused the connection. If you recently updated its firmware, its HTTP/HTTPS API may be off — open the Reolink app, enable HTTP/HTTPS under Network → Advanced → Port Settings, turn off Privacy Mode, then try again."
+        }
+        return "Couldn't reach the camera. Check that it's powered on and on the same network, then try again."
+    }
+
+    /// Rebuild the CGI control plane over HTTPS:443, preserving host and
+    /// credentials. One-shot fallback when a plain-HTTP connect is refused
+    /// at the port (newer Reolink firmware disables HTTP and leaves only
+    /// HTTPS). Downstream features read `client.credentials`, so swapping
+    /// the client switches the session's whole control plane; RTSP (554)
+    /// and Baichuan (9000) ride the unchanged host. GitHub #76.
+    private func upgradeTransportToHTTPS() {
+        let https = CameraCredentials(
+            host: credentials.host,
+            port: 443,
+            username: credentials.username,
+            password: credentials.password,
+            useHTTPS: true
+        )
+        client = CGIClient(credentials: https, tlsPolicy: tlsPolicy)
+        streamURLs = StreamURLs(credentials: https)
+        usingHTTPSFallback = true
     }
 
     public func disconnect() async {

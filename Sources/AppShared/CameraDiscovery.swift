@@ -35,6 +35,14 @@ public actor CameraDiscovery {
     public static let shared = CameraDiscovery()
 
     private let session: URLSession
+    /// Self-signed-tolerant session used ONLY for the HTTPS:443 discovery
+    /// probe. Newer Reolink firmware (3.1.0.x) ships with plain HTTP
+    /// disabled and only HTTPS reachable, so an HTTP-only sweep can't see
+    /// them. Discovery sends no credentials and only checks for a
+    /// Reolink-shaped JSON envelope, so trusting the self-signed cert here
+    /// leaks nothing — the authenticated connection still TOFU-pins via
+    /// `PinningTLSDelegate` (AGENTS.md §3). GitHub #76.
+    private let tlsTolerantSession: URLSession
 
     /// Cap on concurrent /24 probes. iOS / iPadOS get cranky with
     /// 254 simultaneous TCP setups (the OS rate-limits the network
@@ -46,10 +54,19 @@ public actor CameraDiscovery {
     public static let concurrentProbeLimit: Int = 32
 
     private init() {
+        self.session = URLSession(configuration: Self.probeConfiguration())
+        self.tlsTolerantSession = URLSession(
+            configuration: Self.probeConfiguration(),
+            delegate: AcceptAllTLSDelegate(),
+            delegateQueue: nil
+        )
+    }
+
+    /// Shared config for both probe sessions. 0.5.0 Theme E — tight probe
+    /// timeouts. Reolink CGI on a reachable LAN responds in < 200 ms; 1 s
+    /// is generous and gets a full sweep done well inside 3 s wall-clock.
+    private static func probeConfiguration() -> URLSessionConfiguration {
         let config = URLSessionConfiguration.ephemeral
-        // 0.5.0 Theme E — tighter probe timeouts. Reolink CGI on a
-        // reachable LAN responds in < 200 ms; 1 s is generous and
-        // gets a full sweep done well inside 3 s wall-clock.
         config.timeoutIntervalForRequest = 1.0
         config.timeoutIntervalForResource = 1.5
         config.httpMaximumConnectionsPerHost = 8
@@ -57,7 +74,7 @@ public actor CameraDiscovery {
         // Disable cookies — pointless on a discovery scan.
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
-        self.session = URLSession(configuration: config)
+        return config
     }
 
     /// Discover Reolink-looking devices on the Mac's primary IPv4 /24.
@@ -155,8 +172,8 @@ public actor CameraDiscovery {
             while nextIndex < min(limit, candidates.count) {
                 let ip = candidates[nextIndex]
                 let captured = nextIndex
-                group.addTask { [session] in
-                    (captured, await Self.probe(ip: ip, port: 80, session: session))
+                group.addTask { [session, tlsTolerantSession] in
+                    (captured, await Self.probe(ip: ip, httpSession: session, tlsSession: tlsTolerantSession))
                 }
                 nextIndex += 1
             }
@@ -172,8 +189,8 @@ public actor CameraDiscovery {
                 if nextIndex < candidates.count {
                     let ip = candidates[nextIndex]
                     let captured = nextIndex
-                    group.addTask { [session] in
-                        (captured, await Self.probe(ip: ip, port: 80, session: session))
+                    group.addTask { [session, tlsTolerantSession] in
+                        (captured, await Self.probe(ip: ip, httpSession: session, tlsSession: tlsTolerantSession))
                     }
                     nextIndex += 1
                 }
@@ -182,15 +199,39 @@ public actor CameraDiscovery {
         return results
     }
 
-    /// Probe one IP. Two-phase: (1) hit the Reolink CGI endpoint and check
-    /// for a Reolink-shaped JSON envelope; (2) on inconclusive response,
-    /// fall back to a root GET and check headers/body. Anything that doesn't
-    /// look like a Reolink device gets dropped.
-    private static func probe(ip: String, port: Int, session: URLSession) async -> DiscoveredDevice? {
+    /// Probe one IP for a Reolink CGI endpoint. Hits HTTP:80 and HTTPS:443
+    /// concurrently and returns the first Reolink-shaped response — newer
+    /// firmware (3.1.0.x, e.g. CX410) disables plain HTTP and answers only
+    /// on HTTPS, so an HTTP-only sweep misses them (GitHub #76). Racing the
+    /// two keeps per-IP latency at one timeout rather than doubling it.
+    /// A confirmed-Reolink hit wins over a bare 200.
+    private static func probe(
+        ip: String,
+        httpSession: URLSession,
+        tlsSession: URLSession
+    ) async -> DiscoveredDevice? {
+        async let http = probeEndpoint(scheme: "http", host: ip, port: 80, session: httpSession)
+        async let https = probeEndpoint(scheme: "https", host: ip, port: 443, session: tlsSession)
+        let hits = await [http, https].compactMap { $0 }
+        // Prefer a confirmed Reolink JSON envelope over a bare 200.
+        return hits.first(where: { $0.confirmedReolink }) ?? hits.first
+    }
+
+    /// Single-endpoint probe: GET the Reolink CGI on `scheme://host:port`
+    /// and classify the response. Returns `nil` on any transport error or
+    /// non-Reolink-looking reply. A `"cmd"` + `"rspCode"` envelope confirms
+    /// Reolink even when the request is unauthenticated.
+    private static func probeEndpoint(
+        scheme: String,
+        host: String,
+        port: Int,
+        session: URLSession
+    ) async -> DiscoveredDevice? {
         var components = URLComponents()
-        components.scheme = "http"
-        components.host = ip
-        components.port = port == 80 ? nil : port
+        components.scheme = scheme
+        components.host = host
+        let isDefaultPort = (scheme == "http" && port == 80) || (scheme == "https" && port == 443)
+        components.port = isDefaultPort ? nil : port
         components.path = "/cgi-bin/api.cgi"
         components.queryItems = [URLQueryItem(name: "cmd", value: "GetDevInfo")]
         guard let url = components.url else { return nil }
@@ -208,12 +249,12 @@ public actor CameraDiscovery {
             let isReolinkJSON = body.contains("\"cmd\"") && body.contains("rspCode")
             if isReolinkJSON || http.statusCode == 200 {
                 let kind = Self.parseKindHint(body: body, headers: http.allHeaderFields)
-                // Without auth, the HTTP probe can't get a marketing name.
+                // Without auth, the probe can't get a marketing name.
                 // Use the host until Bonjour merges in something prettier.
                 return DiscoveredDevice(
-                    host: ip,
+                    host: host,
                     port: port,
-                    displayName: ip,
+                    displayName: host,
                     kindHint: kind,
                     confirmedReolink: isReolinkJSON
                 )
@@ -521,5 +562,27 @@ extension CameraDiscovery {
         let parts = ip.split(separator: ".").compactMap { UInt32($0) }
         guard parts.count == 4 else { return nil }
         return (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]
+    }
+}
+
+/// URLSession delegate that accepts any server certificate. Used ONLY by
+/// the discovery sweep's HTTPS:443 probe — Reolink devices ship self-signed
+/// certs, and discovery sends no credentials and only checks for a
+/// Reolink-shaped JSON envelope, so trusting the cert here leaks nothing.
+/// The authenticated camera connection uses `PinningTLSDelegate` (TOFU pin,
+/// rejects mismatches) instead — AGENTS.md §3 still holds for every real
+/// camera session. GitHub #76.
+private final class AcceptAllTLSDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
+    func urlSession(
+        _ session: URLSession,
+        didReceive challenge: URLAuthenticationChallenge,
+        completionHandler: @escaping @Sendable (URLSession.AuthChallengeDisposition, URLCredential?) -> Void
+    ) {
+        guard challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust,
+              let trust = challenge.protectionSpace.serverTrust else {
+            completionHandler(.performDefaultHandling, nil)
+            return
+        }
+        completionHandler(.useCredential, URLCredential(trust: trust))
     }
 }
