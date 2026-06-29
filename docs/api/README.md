@@ -58,6 +58,8 @@ outside the loopback / RFC-1918 LAN are refused.
 | `GET /v1/cameras` | List cameras |
 | `GET /v1/cameras/{id}` | One camera |
 | `GET /v1/cameras/{id}/channels` | Channels on a camera |
+| `GET /v1/cameras/{id}/diagnostics` | Connection state + control transport |
+| `POST /v1/cameras/{id}/reboot` | Reboot the camera |
 | `GET /v1/cameras/{id}/channels/{ch}/snapshot` | Current still (`image/jpeg`) |
 | `GET /v1/cameras/{id}/channels/{ch}/stream` | Stream references (mjpeg/rtsp/hls) |
 | `GET /v1/cameras/{id}/channels/{ch}/mjpeg` | Live MJPEG video (multipart) |
@@ -86,6 +88,12 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"op":"left","speed":32}' \
   "$BASE/cameras/CAM-1/channels/0/ptz"
+
+# Check a camera's connection diagnostics (incl. control transport)
+curl -H "Authorization: Bearer $TOKEN" "$BASE/cameras/CAM-1/diagnostics"
+
+# Reboot a camera
+curl -X POST -H "Authorization: Bearer $TOKEN" "$BASE/cameras/CAM-1/reboot"
 
 # Follow the live event stream
 curl -N -H "Authorization: Bearer $TOKEN" "$BASE/events"

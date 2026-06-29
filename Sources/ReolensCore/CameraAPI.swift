@@ -37,6 +37,17 @@ public protocol CameraAPI: Sendable {
     /// it does not wait for the camera to finish moving.
     func ptz(_ id: CameraID, channel: Int, _ command: PTZCommand) async throws
 
+    /// Reboot the camera. Returns once the reboot is dispatched; the device
+    /// drops its control connection and restarts.
+    func reboot(_ id: CameraID) async throws
+
+    // MARK: Diagnostics
+
+    /// A diagnostic snapshot of the camera's current session — connection
+    /// state, control transport, and recent activity. Reads live state without
+    /// forcing a connect.
+    func diagnostics(_ id: CameraID) async throws -> CameraDiagnostics
+
     // MARK: Recordings
 
     /// Search recordings on a channel within the query's time window.

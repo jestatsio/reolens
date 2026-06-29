@@ -87,6 +87,14 @@ public struct APIGateway: Sendable {
             let id = s[1]
             return await run { let list = try await api.channels(id); return .envelope(list, meta: APIMeta(count: list.count)) }
 
+        case 3 where s[0] == "cameras" && s[2] == "diagnostics" && method == "GET":
+            // /v1/cameras/{id}/diagnostics
+            return await run { .envelope(try await api.diagnostics(s[1])) }
+
+        case 3 where s[0] == "cameras" && s[2] == "reboot" && method == "POST":
+            // /v1/cameras/{id}/reboot
+            return await run { try await api.reboot(s[1]); return .accepted() }
+
         case 5 where s[0] == "cameras" && s[2] == "channels":
             // /v1/cameras/{id}/channels/{ch}/{action}
             return await channelAction(request, id: s[1], channelRaw: s[3], action: s[4], method: method)
@@ -259,6 +267,8 @@ private struct OpenAPIDescriptor: Encodable {
     let paths = [
         "GET /v1/health", "GET /v1/cameras", "GET /v1/cameras/{id}",
         "GET /v1/cameras/{id}/channels",
+        "GET /v1/cameras/{id}/diagnostics",
+        "POST /v1/cameras/{id}/reboot",
         "GET /v1/cameras/{id}/channels/{ch}/snapshot",
         "GET /v1/cameras/{id}/channels/{ch}/stream",
         "POST /v1/cameras/{id}/channels/{ch}/ptz",
