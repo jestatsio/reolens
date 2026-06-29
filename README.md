@@ -134,7 +134,7 @@ metadata. The full model is in [AGENTS.md](AGENTS.md) §3, §4.
 
 ```sh
 swift build                 # libs + macOS app
-swift test                  # ~340 tests across 68 suites
+swift test                  # ~675 tests across 117 suites
 ./Scripts/build-app.sh run  # bundled .app (needed for Local Network access)
 
 bash Scripts/check-versions.sh  # macOS + iOS marketing versions must match

@@ -271,6 +271,7 @@ private struct OpenAPIDescriptor: Encodable {
         "POST /v1/cameras/{id}/reboot",
         "GET /v1/cameras/{id}/channels/{ch}/snapshot",
         "GET /v1/cameras/{id}/channels/{ch}/stream",
+        "GET /v1/cameras/{id}/channels/{ch}/mjpeg",
         "POST /v1/cameras/{id}/channels/{ch}/ptz",
         "GET /v1/cameras/{id}/channels/{ch}/recordings",
         "GET /v1/cameras/{id}/channels/{ch}/recordings/{rid}/download",

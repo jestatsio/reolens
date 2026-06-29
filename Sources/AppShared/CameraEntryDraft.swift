@@ -19,6 +19,12 @@ public struct CameraEntryDraft: Sendable {
     public var username: String
     public var useHTTPS: Bool
     public var preferredCodec: VideoCodec
+    /// The control plane discovery detected for this device, when it came from
+    /// the auto-detect picker. Carried into the stored `CameraEntry` so a
+    /// web-API-off (`.baichuan`) camera connects straight over port 9000 on its
+    /// very first connect instead of burning the HTTP→HTTPS refusal budget
+    /// first (GitHub #76). `nil` for manual entry (unknown until first connect).
+    public var controlTransport: ControlTransport?
 
     public init(
         displayName: String,
@@ -26,7 +32,8 @@ public struct CameraEntryDraft: Sendable {
         port: String,
         username: String,
         useHTTPS: Bool = false,
-        preferredCodec: VideoCodec = .h264
+        preferredCodec: VideoCodec = .h264,
+        controlTransport: ControlTransport? = nil
     ) {
         self.displayName = displayName
         self.host = host
@@ -34,6 +41,7 @@ public struct CameraEntryDraft: Sendable {
         self.username = username
         self.useHTTPS = useHTTPS
         self.preferredCodec = preferredCodec
+        self.controlTransport = controlTransport
     }
 
     public enum Field: Hashable, Sendable { case host, port, username }
@@ -93,7 +101,8 @@ public struct CameraEntryDraft: Sendable {
             port: portValue,
             username: trimmedUser,
             useHTTPS: useHTTPS,
-            preferredCodec: preferredCodec
+            preferredCodec: preferredCodec,
+            controlTransport: controlTransport
         )
         return .valid(entry)
     }

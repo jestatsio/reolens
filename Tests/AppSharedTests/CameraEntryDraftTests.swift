@@ -41,6 +41,20 @@ struct CameraEntryDraftTests {
         #expect(entry.displayName == "192.168.1.50")
     }
 
+    @Test("a discovered control transport is carried into the stored entry (#76)")
+    func controlTransportIsCarried() {
+        let d = CameraEntryDraft(
+            displayName: "CX410", host: "192.168.1.77", port: "80",
+            username: "admin", controlTransport: .baichuan
+        )
+        guard case .valid(let entry) = d.validate(existing: []) else { Issue.record("expected valid"); return }
+        #expect(entry.controlTransport == .baichuan)
+        // Manual entry (no discovered transport) stays nil.
+        let manual = draft().validate(existing: [])
+        guard case .valid(let manualEntry) = manual else { Issue.record("expected valid"); return }
+        #expect(manualEntry.controlTransport == nil)
+    }
+
     @Test("invalid hosts are rejected", arguments: [
         "", "   ", "http://192.168.1.5", "https://cam.local", "192.168 1 5", "admin:pw@192.168.1.5",
     ])
