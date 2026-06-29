@@ -106,6 +106,13 @@ public final class CameraSession {
     /// attempt is refused at the port we rebuild the client over HTTPS:443
     /// and retry. Reset at the start of every fresh connect. GitHub #76.
     private var usingHTTPSFallback = false
+    /// Set when the session connected over the **Baichuan** control plane
+    /// (port 9000) because the camera's HTTP/HTTPS CGI API is off entirely
+    /// (newer firmware, e.g. CX410). Live video still rides RTSP and events
+    /// ride Baichuan; PTZ routes through Baichuan; CGI-only features (recording
+    /// search, snapshots) degrade gracefully. Reset on every fresh connect.
+    /// GitHub #76.
+    public private(set) var usingBaichuanControl = false
     /// 0.6.0 Slice 14 — polling lifecycle extracted to `PollManager`.
     /// Replaces the prior `pollTask` + `foregroundCGIOperationDepth +
     /// shouldResumePollingAfterForegroundCGI` triad. `@Observation
@@ -201,6 +208,7 @@ public final class CameraSession {
         status = .connecting
         connectionAttempt = 0
         usingHTTPSFallback = false
+        usingBaichuanControl = false
         let deadline = Date().addingTimeInterval(policy.overallDeadlineSeconds)
 
         // iOS only: a missing Local Network permission silently
@@ -238,10 +246,12 @@ public final class CameraSession {
             status = .error(reason)
             connectionStage = .failed(reason: reason)
         case .unreachable(let err):
+            if Self.suggestsClosedAPIPort(err), await tryBaichuanControlFallback() { return }
             let reason = Self.connectionFailureMessage(for: err)
             status = .error(reason)
             connectionStage = .failed(reason: reason)
         case .deadlineExceeded(let err?):
+            if Self.suggestsClosedAPIPort(err), await tryBaichuanControlFallback() { return }
             let reason = Self.connectionFailureMessage(for: err)
             status = .error(reason)
             connectionStage = .failed(reason: reason)
@@ -447,6 +457,71 @@ public final class CameraSession {
         usingHTTPSFallback = true
     }
 
+    /// Last-resort connect path for cameras whose HTTP/HTTPS CGI API is off
+    /// (newer Reolink firmware ships it disabled, leaving only Baichuan on
+    /// port 9000 — GitHub #76). Reached only after *both* the plain-HTTP and
+    /// the HTTPS:443 attempts were refused at the port, so it never runs for a
+    /// camera the CGI path can reach — normal cameras are unaffected.
+    ///
+    /// Confirms reachability + credentials with a Baichuan login, then brings
+    /// the session up in Baichuan control mode: live video rides RTSP:554 and
+    /// motion/AI events ride the Baichuan push stream (both independent of
+    /// CGI), and PTZ routes through `BaichuanClient.ptzControl`. Recording
+    /// search and CGI snapshots degrade gracefully until their Baichuan
+    /// equivalents land. Returns `true` when the session is now connected.
+    private func tryBaichuanControlFallback() async -> Bool {
+        log.notice("HTTP and HTTPS refused; attempting Baichuan control over port 9000")
+        connectionStage = .establishingPushChannel
+        let creds = BaichuanCredentials(
+            host: credentials.host,
+            username: credentials.username,
+            password: credentials.password
+        )
+        let probe = BaichuanClient(credentials: creds)
+        let deviceName: String
+        do {
+            try await probe.connect()
+            deviceName = try await probe.login()
+        } catch {
+            await probe.close()
+            log.warning("Baichuan control fallback failed: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+        // Release the probe connection before `startBaichuanEvents` opens the
+        // persistent one — Reolink caps concurrent Baichuan logins per
+        // credential, so the two must not overlap.
+        await probe.close()
+
+        let (info, chans) = Self.baichuanFallbackState(deviceName: deviceName, fallbackName: entry.displayName)
+        deviceInfo = info
+        channels = chans
+        usingBaichuanControl = true
+        status = .connected
+        connectionStage = .connected
+        // The Baichuan push stream carries motion/AI events; CGI polling stays
+        // off (its requests would hit the same dead CGI port).
+        startBaichuanEvents()
+        log.notice("Connected via Baichuan control plane (web API off)")
+        return true
+    }
+
+    /// Build the minimal device/channel state for a Baichuan-only camera from
+    /// its login reply. Single channel — NVRs / Home Hubs ship the web API on,
+    /// so they don't reach this path. Pure + `nonisolated` so the mapping is
+    /// unit-pinned. GitHub #76.
+    nonisolated static func baichuanFallbackState(
+        deviceName: String,
+        fallbackName: String
+    ) -> (DeviceInfo, [ChannelStatus]) {
+        let trimmed = deviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let name = !trimmed.isEmpty
+            ? trimmed
+            : (fallbackName.isEmpty ? "Camera" : fallbackName)
+        let info = DeviceInfo(name: name, channelNum: 1)
+        let channel = ChannelStatus(channel: 0, name: name, online: 1, typeInfo: nil)
+        return (info, [channel])
+    }
+
     public func disconnect() async {
         connectTask?.cancel()
         connectTask = nil
@@ -464,6 +539,7 @@ public final class CameraSession {
         status = .disconnected
         connectionStage = .idle
         connectionAttempt = 0
+        usingBaichuanControl = false
     }
 
     /// Opens the proprietary Baichuan TCP connection on port 9000, logs in
@@ -637,6 +713,17 @@ public final class CameraSession {
     }
 
     public func ptz(channel: Int, op: PtzOp, speed: Int = 32, presetID: Int? = nil) async {
+        if usingBaichuanControl {
+            // CGI is off — drive PTZ over the Baichuan control plane. Presets
+            // aren't wired over Baichuan yet; directional / zoom / focus / stop
+            // all work. GitHub #76.
+            do {
+                try await baichuanClient?.ptzControl(channel: UInt8(clamping: channel), op: op)
+            } catch {
+                log.warning("Baichuan PTZ failed: \(error.localizedDescription, privacy: .public)")
+            }
+            return
+        }
         do {
             try await client.sendIgnoringValue(Commands.ptzCtrl(channel: channel, op: op, speed: speed, id: presetID))
         } catch {
@@ -645,6 +732,9 @@ public final class CameraSession {
     }
 
     public func snapshotURL(channel: Int) async -> URL? {
+        // The CGI snapshot endpoint is off in Baichuan control mode; callers
+        // (notifications, preview tiles) treat nil as "no still available".
+        if usingBaichuanControl { return nil }
         let token = await client.currentToken?.name
         return streamURLs.snapshot(channel: channel, token: token)
     }
