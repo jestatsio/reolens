@@ -88,7 +88,7 @@ extension CameraSession: RecordingsDataSource {
             log.info("Search completed channel=\(channel) stream=\(streamType, privacy: .public) files=\(result.count) statuses=\(statuses.count) elapsed=\(Date().timeIntervalSince(startedAt), privacy: .public)s")
             return .success(result, rawPretty: pretty, statuses: statuses)
         } catch let urlError as URLError {
-            return .failure(Self.friendlyTransportMessage(urlError))
+            return .failure(ConnectFailureMessage.text(for: urlError))
         } catch let decodingError as DecodingError {
             return .failure("Couldn't read the camera's response (\(Self.shortDescription(of: decodingError))). The camera firmware may have changed — please report this.")
         } catch {
@@ -157,23 +157,6 @@ extension CameraSession: RecordingsDataSource {
             withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]
         ) else { return nil }
         return String(data: pretty, encoding: .utf8)
-    }
-
-    private static func friendlyTransportMessage(_ urlError: URLError) -> String {
-        switch urlError.code {
-        case .timedOut:
-            return "Connection to the camera timed out. Check that you're on the same Wi-Fi."
-        case .cannotConnectToHost:
-            return "Couldn't reach the camera. Is it powered on?"
-        case .networkConnectionLost:
-            return "Wi-Fi dropped during the request. Try Refresh."
-        case .notConnectedToInternet:
-            return "Your device isn't on a network."
-        case .secureConnectionFailed:
-            return "HTTPS connection failed. The camera's certificate may have changed."
-        default:
-            return "Network error \(urlError.code.rawValue): \(urlError.localizedDescription)"
-        }
     }
 
     private static func shortDescription(of error: DecodingError) -> String {

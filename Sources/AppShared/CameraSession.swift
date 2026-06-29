@@ -247,12 +247,12 @@ public final class CameraSession {
             connectionStage = .failed(reason: reason)
         case .unreachable(let err):
             if Self.suggestsClosedAPIPort(err), await tryBaichuanControlFallback() { return }
-            let reason = Self.connectionFailureMessage(for: err)
+            let reason = Self.connectionFailureMessage(for: err, bothWebPortsRefused: Self.suggestsClosedAPIPort(err) && usingHTTPSFallback)
             status = .error(reason)
             connectionStage = .failed(reason: reason)
         case .deadlineExceeded(let err?):
             if Self.suggestsClosedAPIPort(err), await tryBaichuanControlFallback() { return }
-            let reason = Self.connectionFailureMessage(for: err)
+            let reason = Self.connectionFailureMessage(for: err, bothWebPortsRefused: Self.suggestsClosedAPIPort(err) && usingHTTPSFallback)
             status = .error(reason)
             connectionStage = .failed(reason: reason)
         case .deadlineExceeded(nil):
@@ -318,7 +318,7 @@ public final class CameraSession {
                 lastError = error
                 if Self.isAuthFailure(error) {
                     log.warning("connect attempt \(attempt) auth-failed; stopping retries")
-                    return .authFailure(reason: "Authentication failed — check the password.")
+                    return .authFailure(reason: ConnectFailureMessage.text(for: error))
                 }
                 log.warning("connect attempt \(attempt) failed: \(error.localizedDescription, privacy: .public)")
                 // Newer Reolink firmware (3.1.0.x, e.g. CX410) ships with the
@@ -427,15 +427,13 @@ public final class CameraSession {
         return false
     }
 
-    /// Build the user-facing reason for a failed connect. Keeps the
-    /// camera's host and credentials out of the string (AGENTS.md §3) — the
-    /// raw transport error is logged separately at `.public`. `nonisolated`
-    /// + pure so the wording is unit-pinned. GitHub #76.
-    nonisolated static func connectionFailureMessage(for error: any Error) -> String {
-        if suggestsClosedAPIPort(error) {
-            return "The camera refused the connection. If you recently updated its firmware, its HTTP/HTTPS API may be off — open the Reolink app, enable HTTP/HTTPS under Network → Advanced → Port Settings, turn off Privacy Mode, then try again."
-        }
-        return "Couldn't reach the camera. Check that it's powered on and on the same network, then try again."
+    /// Build the user-facing reason for a failed connect. Thin forwarder to the
+    /// single source of truth (`ConnectFailureMessage`) so the connect path, the
+    /// recordings path, and the auth path all word the same error identically.
+    /// Keeps the camera's host and credentials out of the string (AGENTS.md §3)
+    /// — the raw transport error is logged separately at `.public`. GitHub #76.
+    nonisolated static func connectionFailureMessage(for error: any Error, bothWebPortsRefused: Bool = false) -> String {
+        ConnectFailureMessage.text(for: error, bothWebPortsRefused: bothWebPortsRefused)
     }
 
     /// Rebuild the CGI control plane over HTTPS:443, preserving host and
