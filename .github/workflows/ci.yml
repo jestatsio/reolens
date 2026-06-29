@@ -79,7 +79,7 @@ jobs:
       # Cache the SPM build dir keyed on Package.swift / Package.resolved
       # so the second-and-later runs skip module rebuilds.
       - name: Cache .build
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .build
           key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved', 'Package.swift') }}
@@ -190,7 +190,7 @@ jobs:
           echo "$XCODE_PATH/Contents/Developer/usr/bin" >> "$GITHUB_PATH"
 
       - name: Cache .build
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: .build
           key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved', 'Package.swift') }}
