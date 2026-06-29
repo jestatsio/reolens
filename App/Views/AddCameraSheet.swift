@@ -289,6 +289,7 @@ private struct CredentialsPane: View {
 private struct ManualPane: View {
     let onAdd: (CameraEntry, String) -> Void
 
+    @Environment(CameraStore.self) private var store
     @State private var displayName = ""
     @State private var host = ""
     @State private var port = "80"
@@ -296,6 +297,7 @@ private struct ManualPane: View {
     @State private var password = ""
     @State private var useHTTPS = false
     @State private var preferredCodec: VideoCodec = .h264
+    @State private var fieldErrors: [CameraEntryDraft.Field: String] = [:]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -304,10 +306,16 @@ private struct ManualPane: View {
                     TextField("Display name", text: $displayName)
                         .textContentType(.name)
                     TextField("Host or IP", text: $host)
+                        .onChange(of: host) { fieldErrors[.host] = nil }
+                    inlineError(.host)
                     TextField("Port", text: $port)
+                        .onChange(of: port) { fieldErrors[.port] = nil }
+                    inlineError(.port)
                 }
                 Section("Credentials") {
                     TextField("Username", text: $username)
+                        .onChange(of: username) { fieldErrors[.username] = nil }
+                    inlineError(.username)
                     SecureField("Password", text: $password)
                 }
                 Section("Connection") {
@@ -322,23 +330,33 @@ private struct ManualPane: View {
 
             HStack {
                 Spacer()
-                Button("Add device") {
-                    let portInt = Int(port) ?? 80
-                    let displayed = displayName.isEmpty ? host : displayName
-                    let entry = CameraEntry(
-                        displayName: displayed,
-                        host: host,
-                        port: portInt,
-                        username: username,
-                        useHTTPS: useHTTPS,
-                        preferredCodec: preferredCodec
-                    )
-                    onAdd(entry, password)
-                }
+                Button("Add device") { submit() }
                 .keyboardShortcut(.defaultAction)
                 .disabled(host.isEmpty || username.isEmpty || password.isEmpty)
             }
             .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private func inlineError(_ field: CameraEntryDraft.Field) -> some View {
+        if let message = fieldErrors[field] {
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
+    private func submit() {
+        let draft = CameraEntryDraft(
+            displayName: displayName, host: host, port: port,
+            username: username, useHTTPS: useHTTPS, preferredCodec: preferredCodec
+        )
+        switch draft.validate(existing: store.cameras) {
+        case .invalid(let errors):
+            fieldErrors = errors
+        case .valid(let entry):
+            onAdd(entry, password)
         }
     }
 }

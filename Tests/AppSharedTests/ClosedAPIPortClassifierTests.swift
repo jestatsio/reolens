@@ -42,29 +42,58 @@ struct ClosedAPIPortClassifierTests {
         #expect(!CameraSession.suggestsClosedAPIPort(err))
     }
 
-    // MARK: - connectionFailureMessage
+    // MARK: - connectionFailureMessage / ConnectFailureMessage (consolidated)
 
     @Test("a refused port yields the actionable enable-the-port message")
     func refusedPortMessageIsActionable() {
         let message = CameraSession.connectionFailureMessage(for: URLError(.cannotConnectToHost))
         #expect(message.contains("Port Settings"))
         #expect(message.contains("HTTP/HTTPS"))
+        #expect(!message.contains("Baichuan"))   // the single-port message, not the both-ports one
+    }
+
+    @Test("both web ports refused points at the web-API toggle and mentions Baichuan")
+    func bothPortsRefusedMessage() {
+        let message = CameraSession.connectionFailureMessage(for: URLError(.cannotConnectToHost), bothWebPortsRefused: true)
+        #expect(message.contains("Baichuan"))
+        #expect(message.contains("Privacy Mode"))
+    }
+
+    @Test("a timeout is worded distinctly from a refused port")
+    func timeoutMessageIsDistinct() {
+        let message = CameraSession.connectionFailureMessage(for: URLError(.timedOut))
+        #expect(message.contains("in time"))
+        #expect(!message.contains("Port Settings"))
+    }
+
+    @Test("a rejected password points the user to Settings → Cameras")
+    func authMessagePointsToSettings() {
+        let err = ReolinkClientError.http(status: 401, body: nil)
+        let message = CameraSession.connectionFailureMessage(for: err)
+        #expect(message.contains("Settings → Cameras"))
     }
 
     @Test("a generic transport failure yields the generic reachability message")
     func genericFailureMessage() {
-        let message = CameraSession.connectionFailureMessage(for: URLError(.timedOut))
+        let message = CameraSession.connectionFailureMessage(for: URLError(.badServerResponse))
         #expect(message.contains("Couldn't reach the camera"))
         #expect(!message.contains("Port Settings"))
     }
 
-    @Test("failure messages never leak a host or credentials (AGENTS.md §3)")
+    @Test("every failure message stays host- and credential-free (AGENTS.md §3)")
     func messagesAreCredentialFree() {
-        for error in [URLError(.cannotConnectToHost), URLError(.timedOut)] as [any Error] {
-            let message = CameraSession.connectionFailureMessage(for: error)
-            #expect(!message.contains("192.168"))
-            #expect(!message.contains("admin"))
-            #expect(!message.contains("@"))
+        let errors: [any Error] = [
+            URLError(.cannotConnectToHost), URLError(.timedOut), URLError(.cannotFindHost),
+            URLError(.secureConnectionFailed), URLError(.notConnectedToInternet),
+            ReolinkClientError.http(status: 401, body: nil),
+        ]
+        for error in errors {
+            for bothPorts in [false, true] {
+                let message = CameraSession.connectionFailureMessage(for: error, bothWebPortsRefused: bothPorts)
+                #expect(!message.contains("192.168"))
+                #expect(!message.contains("admin"))
+                #expect(!message.contains("@"))
+            }
         }
     }
 }

@@ -23,6 +23,7 @@ struct AddCameraView: View {
     @State private var useHTTPS: Bool = false
     @State private var preferredCodec: VideoCodec = .h264
     @State private var showingDiscovery: Bool = false
+    @State private var fieldErrors: [CameraEntryDraft.Field: String] = [:]
 
     private var isValid: Bool {
         !host.trimmingCharacters(in: .whitespaces).isEmpty
@@ -52,14 +53,20 @@ struct AddCameraView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .onChange(of: host) { fieldErrors[.host] = nil }
+                    inlineError(.host)
                     TextField("Port", text: $port)
                         .keyboardType(.numberPad)
+                        .onChange(of: port) { fieldErrors[.port] = nil }
+                    inlineError(.port)
                     Toggle("Use HTTPS", isOn: $useHTTPS)
                 }
                 Section("Credentials") {
                     TextField("Username", text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                        .onChange(of: username) { fieldErrors[.username] = nil }
+                    inlineError(.username)
                     SecureField("Password", text: $password)
                 }
                 Section("Stream") {
@@ -92,19 +99,27 @@ struct AddCameraView: View {
         }
     }
 
+    @ViewBuilder
+    private func inlineError(_ field: CameraEntryDraft.Field) -> some View {
+        if let message = fieldErrors[field] {
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.red)
+        }
+    }
+
     private func submit() {
-        guard let portInt = Int(port) else { return }
-        let trimmedHost = host.trimmingCharacters(in: .whitespaces)
-        let entry = CameraEntry(
-            displayName: displayName.isEmpty ? trimmedHost : displayName,
-            host: trimmedHost,
-            port: portInt,
-            username: username.trimmingCharacters(in: .whitespaces),
-            useHTTPS: useHTTPS,
-            preferredCodec: preferredCodec
+        let draft = CameraEntryDraft(
+            displayName: displayName, host: host, port: port,
+            username: username, useHTTPS: useHTTPS, preferredCodec: preferredCodec
         )
-        store.add(entry, password: password)
-        dismiss()
+        switch draft.validate(existing: store.cameras) {
+        case .invalid(let errors):
+            fieldErrors = errors
+        case .valid(let entry):
+            store.add(entry, password: password)
+            dismiss()
+        }
     }
 
     private func apply(_ device: DiscoveredDevice) {
