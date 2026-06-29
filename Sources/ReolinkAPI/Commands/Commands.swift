@@ -16,6 +16,12 @@ public enum Commands {
         CGICommand(cmd: "Logout", action: .get, param: EmptyParam())
     }
 
+    /// Reboot the device. No parameters; the camera replies `rspCode: 200` and
+    /// then drops the control connection as it restarts.
+    public static func reboot() -> CGICommand<EmptyParam> {
+        CGICommand(cmd: "Reboot", action: .get, param: EmptyParam())
+    }
+
     public static func getDevInfo() -> CGICommand<EmptyParam> {
         CGICommand(cmd: "GetDevInfo", action: .get, param: EmptyParam())
     }

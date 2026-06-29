@@ -98,6 +98,42 @@ paths:
                         items: { $ref: "#/components/schemas/ChannelResource" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /cameras/{id}/diagnostics:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+    get:
+      tags: [cameras]
+      summary: Connection diagnostics for a camera
+      description: >
+        A snapshot of the camera's current session — connection state, the
+        control transport in use (http / https / baichuan), and recent
+        activity. Reads live state without forcing a connect.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - properties:
+                      data: { $ref: "#/components/schemas/CameraDiagnostics" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cameras/{id}/reboot:
+    parameters:
+      - $ref: "#/components/parameters/CameraId"
+    post:
+      tags: [control]
+      summary: Reboot the camera
+      description: >
+        Dispatches a reboot and returns 202 once sent. The device drops its
+        control connection and restarts.
+      responses:
+        "202": { description: Reboot dispatched }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/Upstream" }
+
   /cameras/{id}/channels/{ch}/snapshot:
     parameters:
       - $ref: "#/components/parameters/CameraId"
@@ -464,3 +500,24 @@ components:
         cameraCount: { type: integer }
         onlineCount: { type: integer }
         hubRunning: { type: boolean }
+
+    CameraDiagnostics:
+      type: object
+      required: [id, connectionStatus, online, channelCount, eventCount]
+      properties:
+        id: { type: string }
+        connectionStatus:
+          type: string
+          enum: [connected, connecting, disconnected, error]
+        controlTransport:
+          type: string
+          nullable: true
+          enum: [http, https, baichuan]
+          description: Control plane in use; null when not connected.
+        online: { type: boolean }
+        channelCount: { type: integer }
+        eventCount: { type: integer }
+        lastError:
+          type: string
+          nullable: true
+          description: Sanitized user-facing failure reason (no host/credentials).

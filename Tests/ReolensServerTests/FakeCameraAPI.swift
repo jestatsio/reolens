@@ -33,6 +33,20 @@ struct FakeCameraAPI: CameraAPI {
 
     func ptz(_ id: CameraID, channel: Int, _ command: PTZCommand) async throws {}
 
+    func reboot(_ id: CameraID) async throws {
+        guard cameraList.contains(where: { $0.id == id }) else { throw APIError.cameraNotFound(id) }
+    }
+
+    var diagnosticsValue = CameraDiagnostics(
+        id: "CAM-1", connectionStatus: "connected", controlTransport: "baichuan",
+        online: true, channelCount: 1, eventCount: 0, lastError: nil
+    )
+
+    func diagnostics(_ id: CameraID) async throws -> CameraDiagnostics {
+        guard cameraList.contains(where: { $0.id == id }) else { throw APIError.cameraNotFound(id) }
+        return diagnosticsValue
+    }
+
     func recordings(_ id: CameraID, channel: Int, _ query: RecordingQuery) async throws -> RecordingPage {
         RecordingPage(items: recordingItems, nextCursor: nil)
     }

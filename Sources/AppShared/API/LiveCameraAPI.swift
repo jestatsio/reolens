@@ -76,6 +76,15 @@ public struct LiveCameraAPI: CameraAPI {
         )
     }
 
+    public func reboot(_ id: CameraID) async throws {
+        let session = try await connectedSession(id)
+        // Best-effort: a reboot tears down the control connection, so a
+        // transport error right after dispatch is the expected outcome, not a
+        // failure. `connectedSession` already verified the camera is reachable
+        // and authenticated, so reaching here means the command was sent.
+        try? await session.client.sendIgnoringValue(Commands.reboot())
+    }
+
     // MARK: Recordings
 
     public func recordings(_ id: CameraID, channel: Int, _ query: RecordingQuery) async throws -> RecordingPage {
@@ -132,6 +141,53 @@ public struct LiveCameraAPI: CameraAPI {
                 hubRunning: store.preferences.runAsHub
             )
         }
+    }
+
+    // MARK: Diagnostics
+
+    public func diagnostics(_ id: CameraID) async throws -> CameraDiagnostics {
+        try await MainActor.run {
+            guard let uuid = UUID(uuidString: id),
+                  store.cameras.contains(where: { $0.id == uuid }) else {
+                throw APIError.cameraNotFound(id)
+            }
+            // Read current state without forcing a connect — diagnostics
+            // reflect the existing session, they don't start one.
+            return Self.makeDiagnostics(id: id, session: store.sessions[uuid])
+        }
+    }
+
+    /// Map a session's live state onto the diagnostics resource. `@MainActor`
+    /// because it reads session state; all fields stay credential/host-free
+    /// (AGENTS.md §3 — `lastError` is the already-sanitized user-facing reason).
+    @MainActor
+    static func makeDiagnostics(id: CameraID, session: CameraSession?) -> CameraDiagnostics {
+        let connectionStatus: String
+        let lastError: String?
+        switch session?.status {
+        case .connected?:          connectionStatus = "connected";    lastError = nil
+        case .connecting?:         connectionStatus = "connecting";   lastError = nil
+        case .error(let reason)?:  connectionStatus = "error";        lastError = reason
+        case .disconnected?, nil:  connectionStatus = "disconnected"; lastError = nil
+        }
+        let online = session?.status == .connected
+        let transport: String?
+        if online, let session {
+            transport = session.usingBaichuanControl
+                ? "baichuan"
+                : (session.credentials.useHTTPS ? "https" : "http")
+        } else {
+            transport = nil
+        }
+        return CameraDiagnostics(
+            id: id,
+            connectionStatus: connectionStatus,
+            controlTransport: transport,
+            online: online,
+            channelCount: session?.liveChannels.count ?? 0,
+            eventCount: session?.aiEventLog.count ?? 0,
+            lastError: lastError
+        )
     }
 
     // MARK: - Session resolution

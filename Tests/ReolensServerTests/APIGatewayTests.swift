@@ -174,6 +174,37 @@ struct GatewayRoutingTests {
         #expect(response?.status == 404)
     }
 
+    @Test("GET diagnostics returns the camera's session snapshot")
+    func diagnostics() async throws {
+        let response = try #require(responseOf(await gateway.handle(request("GET", "/v1/cameras/CAM-1/diagnostics"))))
+        #expect(response.status == 200)
+        let decoded = try jsonDecoder.decode(APIResponse<CameraDiagnostics>.self, from: response.body)
+        #expect(decoded.data?.id == "CAM-1")
+        #expect(decoded.data?.controlTransport == "baichuan")
+        #expect(decoded.data?.connectionStatus == "connected")
+    }
+
+    @Test("diagnostics for an unknown camera is 404")
+    func diagnosticsUnknown() async throws {
+        let response = try #require(responseOf(await gateway.handle(request("GET", "/v1/cameras/CAM-X/diagnostics"))))
+        #expect(response.status == 404)
+    }
+
+    @Test("POST reboot is 202; GET reboot is 404 (wrong method)")
+    func reboot() async throws {
+        let ok = responseOf(await gateway.handle(request("POST", "/v1/cameras/CAM-1/reboot")))
+        #expect(ok?.status == 202)
+        // Wrong method falls through to not-found rather than rebooting.
+        let wrongMethod = responseOf(await gateway.handle(request("GET", "/v1/cameras/CAM-1/reboot")))
+        #expect(wrongMethod?.status == 404)
+    }
+
+    @Test("reboot for an unknown camera is 404")
+    func rebootUnknown() async throws {
+        let response = try #require(responseOf(await gateway.handle(request("POST", "/v1/cameras/CAM-X/reboot"))))
+        #expect(response.status == 404)
+    }
+
     @Test("recording download never returns a credential-bearing URL")
     func downloadStripsURL() async throws {
         let response = try #require(responseOf(await gateway.handle(
