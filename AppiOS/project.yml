@@ -476,3 +476,8 @@ targets:
         product: ReolinkBaichuan
       - package: Reolens
         product: AppShared
+      # 0.9.0 — the macOS app hosts the local /v1 REST API
+      # (App/LocalAPI/LocalAPIController.swift imports ReolensServer). The iOS
+      # targets don't include ../App, so they don't need it.
+      - package: Reolens
+        product: ReolensServer
