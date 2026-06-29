@@ -2,6 +2,7 @@ import Foundation
 import Network
 import OSLog
 import Darwin
+import ReolinkBaichuan
 
 private let log = Logger(subsystem: "com.reolens.app", category: "discovery")
 
@@ -24,6 +25,11 @@ public struct DiscoveredDevice: Identifiable, Hashable, Sendable {
     /// True when at least one signal (Bonjour service-name match OR HTTP
     /// CGI-shaped JSON envelope) confirms this is a Reolink device.
     public let confirmedReolink: Bool
+    /// Which control plane answered the probe — `.http`/`.https` for the CGI
+    /// API, or `.baichuan` when only the port-9000 protocol responded (newer
+    /// firmware ships the web API off). Drives how the session connects.
+    /// GitHub #76.
+    public let controlTransport: ControlTransport
 }
 
 /// Scans the local /24 subnet for Reolink HTTP endpoints by sending a
@@ -144,7 +150,8 @@ public actor CameraDiscovery {
                     port: httpResults[i].port,
                     displayName: pretty,
                     kindHint: BonjourCollector.kindHint(from: advertisedName),
-                    confirmedReolink: httpResults[i].confirmedReolink
+                    confirmedReolink: httpResults[i].confirmedReolink,
+                    controlTransport: httpResults[i].controlTransport
                 )
                 log.info("Bonjour name for \(httpResults[i].host, privacy: .public): '\(advertisedName, privacy: .public)' → '\(pretty, privacy: .public)'")
             }
@@ -199,12 +206,14 @@ public actor CameraDiscovery {
         return results
     }
 
-    /// Probe one IP for a Reolink CGI endpoint. Hits HTTP:80 and HTTPS:443
-    /// concurrently and returns the first Reolink-shaped response — newer
-    /// firmware (3.1.0.x, e.g. CX410) disables plain HTTP and answers only
-    /// on HTTPS, so an HTTP-only sweep misses them (GitHub #76). Racing the
-    /// two keeps per-IP latency at one timeout rather than doubling it.
-    /// A confirmed-Reolink hit wins over a bare 200.
+    /// Probe one IP for a Reolink control plane. Hits HTTP:80, HTTPS:443, and
+    /// the Baichuan port (9000) concurrently and returns the best response —
+    /// newer firmware (3.1.0.x, e.g. CX410) disables the HTTP/HTTPS CGI API and
+    /// answers *only* on Baichuan, so a web-only sweep misses them entirely
+    /// (GitHub #76). Racing the three keeps per-IP latency at one timeout
+    /// rather than tripling it. `resolveDiscovery` picks the winner: a
+    /// confirmed CGI endpoint first, then a confirmed Baichuan port, then any
+    /// bare web response.
     private static func probe(
         ip: String,
         httpSession: URLSession,
@@ -212,9 +221,39 @@ public actor CameraDiscovery {
     ) async -> DiscoveredDevice? {
         async let http = probeEndpoint(scheme: "http", host: ip, port: 80, session: httpSession)
         async let https = probeEndpoint(scheme: "https", host: ip, port: 443, session: tlsSession)
-        let hits = await [http, https].compactMap { $0 }
-        // Prefer a confirmed Reolink JSON envelope over a bare 200.
-        return hits.first(where: { $0.confirmedReolink }) ?? hits.first
+        async let baichuan = probeBaichuan(host: ip)
+        let webHits = await [http, https].compactMap { $0 }
+        return resolveDiscovery(host: ip, webHits: webHits, baichuanConfirmed: await baichuan)
+    }
+
+    /// Pick the device a set of per-IP probe results describes, in
+    /// descending order of capability/confidence. Pure + `nonisolated` so the
+    /// precedence (confirmed CGI > confirmed Baichuan > bare web 200) is
+    /// unit-pinned without a live network. GitHub #76.
+    nonisolated static func resolveDiscovery(
+        host: String,
+        webHits: [DiscoveredDevice],
+        baichuanConfirmed: Bool
+    ) -> DiscoveredDevice? {
+        // 1. A confirmed-Reolink CGI endpoint is the most capable path.
+        if let confirmed = webHits.first(where: { $0.confirmedReolink }) {
+            return confirmed
+        }
+        // 2. A confirmed Baichuan port (9000) is a stronger Reolink signal
+        //    than an unconfirmed bare-200 web hit, and the only path for
+        //    web-API-off firmware.
+        if baichuanConfirmed {
+            return DiscoveredDevice(
+                host: host,
+                port: Int(BcConstants.defaultPort),
+                displayName: host,
+                kindHint: "Reolink",
+                confirmedReolink: true,
+                controlTransport: .baichuan
+            )
+        }
+        // 3. Fall back to any web response (legacy behavior).
+        return webHits.first
     }
 
     /// Single-endpoint probe: GET the Reolink CGI on `scheme://host:port`
@@ -256,13 +295,78 @@ public actor CameraDiscovery {
                     port: port,
                     displayName: host,
                     kindHint: kind,
-                    confirmedReolink: isReolinkJSON
+                    confirmedReolink: isReolinkJSON,
+                    controlTransport: scheme == "https" ? .https : .http
                 )
             }
             return nil
         } catch {
             return nil
         }
+    }
+
+    // MARK: - Baichuan port-9000 probe (GitHub #76)
+
+    /// Probe one IP for the Reolink Baichuan control plane on TCP :9000.
+    /// Opens a connection, sends the credential-free legacy `LoginUpgrade`
+    /// (phase 1 of the Baichuan handshake — empty body, no secrets), and
+    /// confirms the device by the magic header on its reply. Returns `true`
+    /// only on a genuine Baichuan reply, so an unrelated service that merely
+    /// listens on 9000 isn't misreported as a camera. Bounded by a hard
+    /// timeout so a silent host can't stall the sweep.
+    private static func probeBaichuan(host: String, timeoutSeconds: Double = 1.5) async -> Bool {
+        guard let port = NWEndpoint.Port(rawValue: BcConstants.defaultPort) else { return false }
+        return await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            let box = ProbeOnceBox(cont)
+            let connection = NWConnection(host: NWEndpoint.Host(host), port: port, using: .tcp)
+
+            // Hard deadline — NWConnection won't time out a silent host on its
+            // own, so cancel it ourselves and report "not Baichuan". `box` only
+            // resumes once, so a timeout that fires after a real reply is a
+            // harmless no-op (nothing to cancel).
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + timeoutSeconds) {
+                connection.cancel()
+                box.finish(false)
+            }
+
+            connection.stateUpdateHandler = { state in
+                switch state {
+                case .ready:
+                    // Phase-1 handshake: legacy LoginUpgrade, empty body, no
+                    // credentials. Reuses the wire types from ReolinkBaichuan
+                    // so the probe frame stays in lockstep with the real client.
+                    let header = BcHeader(
+                        msgID: BcMessageID.login,
+                        bodyLength: 0,
+                        msgNum: 0,
+                        responseCode: BcEncryptionLevel.fullAes.requestByte,
+                        msgClass: BcConstants.classLegacy
+                    )
+                    connection.send(content: header.encode(), completion: .contentProcessed { _ in })
+                    connection.receive(minimumIncompleteLength: 4, maximumLength: 256) { data, _, _, _ in
+                        let confirmed = data.map(Self.isBaichuanReplyMagic) ?? false
+                        connection.cancel()
+                        box.finish(confirmed)
+                    }
+                case .failed, .cancelled:
+                    box.finish(false)
+                default:
+                    break
+                }
+            }
+            connection.start(queue: .global(qos: .utility))
+        }
+    }
+
+    /// `true` if `data` begins with the Baichuan magic header (`0x0ABCDEF0`,
+    /// or the `0x0FEDCBA0` flavor some binary replies use), little-endian on
+    /// the wire. Pure + `nonisolated` so the wire check is unit-pinned without
+    /// a socket. GitHub #76.
+    nonisolated static func isBaichuanReplyMagic(_ data: Data) -> Bool {
+        guard data.count >= 4 else { return false }
+        let first4 = Array(data.prefix(4))
+        return first4 == [0xF0, 0xDE, 0xBC, 0x0A]    // 0x0ABCDEF0 (BcConstants.magicHeader)
+            || first4 == [0xA0, 0xCB, 0xED, 0x0F]    // 0x0FEDCBA0 (BcConstants.magicHeaderRev)
     }
 
     /// Best-effort device-type label. Reolink's unauth JSON sometimes leaks
@@ -562,6 +666,23 @@ extension CameraDiscovery {
         let parts = ip.split(separator: ".").compactMap { UInt32($0) }
         guard parts.count == 4 else { return nil }
         return (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3]
+    }
+}
+
+/// Resumes a `CheckedContinuation<Bool, Never>` exactly once, no matter how
+/// many `NWConnection` callbacks (ready / receive / failed / timeout) race to
+/// finish the Baichuan probe. Mirrors the `ContinuationBox` pattern in
+/// `LANTransport`. GitHub #76.
+private final class ProbeOnceBox: @unchecked Sendable {
+    private var continuation: CheckedContinuation<Bool, Never>?
+    private let lock = NSLock()
+    init(_ cont: CheckedContinuation<Bool, Never>) { self.continuation = cont }
+    func finish(_ value: Bool) {
+        lock.lock()
+        let c = continuation
+        continuation = nil
+        lock.unlock()
+        c?.resume(returning: value)
     }
 }
 
