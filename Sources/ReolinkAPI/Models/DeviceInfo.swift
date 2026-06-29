@@ -32,6 +32,31 @@ public struct DeviceInfo: Sendable, Codable, Hashable {
         let m = (model ?? "").lowercased()
         return m.contains("home hub") || m.hasPrefix("rln-hub") || m.contains("hub pro")
     }
+
+    /// Minimal device info for a control plane that can't run the full
+    /// `GetDevInfo` CGI — e.g. a Baichuan-only camera whose HTTP/HTTPS API is
+    /// off (newer firmware, GitHub #76). Only the fields we can learn from the
+    /// Baichuan login reply are populated; the rest stay `nil`.
+    public init(name: String?, model: String? = nil, channelNum: Int? = 1, type: String? = nil) {
+        self.name = name
+        self.model = model
+        self.hardVer = nil
+        self.firmVer = nil
+        self.serial = nil
+        self.buildDay = nil
+        self.cfgVer = nil
+        self.detail = nil
+        self.diskNum = nil
+        self.channelNum = channelNum
+        self.type = type
+        self.wifi = nil
+        self.b485 = nil
+        self.IOInputNum = nil
+        self.IOOutputNum = nil
+        self.audioNum = nil
+        self.pakSuffix = nil
+        self.exactType = nil
+    }
 }
 
 public struct DeviceInfoEnvelope: Sendable, Codable {
