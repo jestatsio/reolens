@@ -232,6 +232,18 @@ public final class CameraSession {
             break
         }
 
+        // 0.9.0 A4 — a camera we previously reached only over Baichuan (its
+        // HTTP/HTTPS CGI API is off) will just refuse 80/443 again, so skip
+        // straight to the Baichuan control plane. Additive: nil / .http /
+        // .https entries fall through to the normal CGI-first loop below, so
+        // normal cameras are unaffected. On failure (the camera re-enabled its
+        // web API, or a transient blip) fall through to the full probe so a
+        // stale persisted value can't strand the camera. GitHub #76.
+        if entry.controlTransport == .baichuan, !Task.isCancelled, Date() < deadline {
+            if await tryBaichuanControlFallback() { return }
+            log.notice("persisted Baichuan transport failed; falling back to full CGI probe")
+        }
+
         // Reolens is LAN-only: it reaches the camera on the user's home
         // network (or via an overlay like Tailscale that exposes the LAN
         // from anywhere). There's no public-internet fallback path.
@@ -496,6 +508,9 @@ public final class CameraSession {
         deviceInfo = info
         channels = chans
         usingBaichuanControl = true
+        // Persist `.baichuan` so the next connect skips the 80/443 probes this
+        // web-API-off camera will only refuse again (idempotent). GitHub #76.
+        onControlTransportObserved?(.baichuan)
         status = .connected
         connectionStage = .connected
         // The Baichuan push stream carries motion/AI events; CGI polling stays
@@ -801,6 +816,12 @@ public final class CameraSession {
     /// invoking it on every successful login (rather than only
     /// the first one) doesn't thrash iCloud sync.
     public var onUIDObserved: (@MainActor (String) -> Void)?
+
+    /// 0.9.0 A4 — back-channel from the session to the store so the control
+    /// plane that actually connected (notably `.baichuan` after a web-API-off
+    /// fallback) is persisted to `cameras.json`. Mirrors `onUIDObserved`; wired
+    /// in `CameraStore.session(for:)`; idempotent on the store side. GitHub #76.
+    public var onControlTransportObserved: (@MainActor (ControlTransport) -> Void)?
 
     /// Authoritative "does this camera have two physical lenses on one
     /// stream" check. Checks the user-supplied manual override first, then

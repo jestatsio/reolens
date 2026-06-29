@@ -156,4 +156,79 @@ struct CameraEntrySchemaTests {
         let entry = try JSONDecoder().decode(CameraEntry.self, from: json)
         #expect(entry.host == "192.168.1.50")
     }
+
+    // MARK: - 0.9.0 A4 — controlTransport field
+
+    @Test("controlTransport round-trips through JSON when present")
+    func controlTransportRoundTrips() throws {
+        let entry = CameraEntry(
+            displayName: "CX410",
+            host: "10.0.0.7",
+            username: "admin",
+            controlTransport: .baichuan
+        )
+        let data = try JSONEncoder().encode(entry)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(json.contains("controlTransport"))
+        #expect(json.contains("baichuan"))
+        let decoded = try JSONDecoder().decode(CameraEntry.self, from: data)
+        #expect(decoded.controlTransport == .baichuan)
+        #expect(decoded == entry)
+    }
+
+    @Test("Absent controlTransport stays nil and is not emitted to JSON")
+    func controlTransportAbsent() throws {
+        let entry = CameraEntry(displayName: "Front Door", host: "10.0.0.5", username: "admin")
+        let data = try JSONEncoder().encode(entry)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("controlTransport"))
+        let decoded = try JSONDecoder().decode(CameraEntry.self, from: data)
+        #expect(decoded.controlTransport == nil)
+    }
+
+    @Test("Decoding an older cameras.json without controlTransport tolerates the absent field")
+    func controlTransportDecodesOldSchema() throws {
+        let json = """
+        {
+            "id": "33333333-3333-3333-3333-333333333333",
+            "displayName": "Old Cam",
+            "host": "192.168.1.42",
+            "port": 80,
+            "username": "admin",
+            "useHTTPS": false,
+            "preferredCodec": "h264",
+            "channelStreamRotations": {},
+            "dualLensOverrides": [],
+            "gridPreset": "adaptive",
+            "channelOrder": []
+        }
+        """.data(using: .utf8)!
+        let entry = try JSONDecoder().decode(CameraEntry.self, from: json)
+        #expect(entry.controlTransport == nil)
+    }
+
+    @Test("An unrecognized future controlTransport value decodes to nil rather than throwing")
+    func controlTransportUnknownStringTolerated() throws {
+        // A newer Reolens build might persist a transport this build doesn't
+        // know (e.g. "webrtc"). Older apps must decode-and-ignore it, not
+        // throw — AGENTS.md §7 forward compatibility.
+        let json = """
+        {
+            "id": "55555555-5555-5555-5555-555555555555",
+            "displayName": "Future Cam",
+            "host": "192.168.1.60",
+            "port": 80,
+            "username": "admin",
+            "useHTTPS": false,
+            "preferredCodec": "h264",
+            "channelStreamRotations": {},
+            "dualLensOverrides": [],
+            "gridPreset": "adaptive",
+            "channelOrder": [],
+            "controlTransport": "webrtc"
+        }
+        """.data(using: .utf8)!
+        let entry = try JSONDecoder().decode(CameraEntry.self, from: json)
+        #expect(entry.controlTransport == nil)
+    }
 }
