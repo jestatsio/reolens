@@ -5,27 +5,22 @@ All notable changes to Reolens are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
-
-### Fixed
-
-- **Cameras whose web API is off (newer Reolink firmware) now connect, and a
-  clear message explains the rest.** Reolink's 3.1.0.x firmware (e.g. the
-  CX410) ships with the HTTP/HTTPS API disabled by default and only the
-  Baichuan port (9000) open, so auto-detect couldn't see the camera and a
-  manual add failed with an unhelpful "Couldn't reach the camera." Three
-  changes (GitHub #76): auto-detect now probes **HTTPS (443)** alongside
-  HTTP, so an HTTPS-only camera shows up in the scan; a manual/auto add that
-  hits a **refused HTTP port** transparently retries over **HTTPS:443**
-  before giving up; and when the camera still refuses every web port, the
-  error now tells you exactly what to do — *enable HTTP/HTTPS under the
-  Reolink app's Network → Advanced → Port Settings and turn off Privacy
-  Mode*. No credentials or hostnames appear in the message (AGENTS.md §3).
-
-## [0.9.0] — 2026-05-30
+## [0.9.0] — 2026-06-29
 
 ### Added
 
+- **Cameras with their web API turned off now connect — automatically, over
+  Baichuan.** Newer Reolink firmware (3.1.0.x, e.g. the CX410) ships with the
+  HTTP/HTTPS CGI API disabled and only the Baichuan port (9000) open, so these
+  cameras were invisible to auto-detect and couldn't be added at all. Now
+  auto-detect probes HTTPS:443 and Baichuan:9000 alongside HTTP:80; a connect
+  that's refused on every web port transparently falls back to Baichuan, so the
+  camera comes online with live video (RTSP), motion/AI events, and PTZ — with
+  no setting to change. Reolens remembers the transport so the next connect goes
+  straight to the right port. If you'd rather use the web API, the error tells
+  you exactly how to re-enable it (Reolink app → Network → Advanced → Port
+  Settings, turn off Privacy Mode). No credentials or hostnames appear in any
+  message (AGENTS.md §3). GitHub #76.
 - **A clean, local REST API for your cameras (macOS, opt-in).** Reolens now
   has a stable, versioned `/v1` HTTP API — list cameras, pull snapshots, move
   PTZ, search recordings, watch a live MJPEG video stream, and follow a live
@@ -36,6 +31,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   Hand-rolled on Network.framework — no new dependencies, and no Reolens server
   (it runs on your own Mac). macOS-only for now (iPhone/iPad can't hold a
   background listener), mirroring the Hub. Full contract in `docs/api/`.
+- **New REST API endpoints: per-camera diagnostics and reboot.** `GET
+  /v1/cameras/{id}/diagnostics` reports connection state, the active control
+  transport (http / https / baichuan), and recent activity; `POST
+  /v1/cameras/{id}/reboot` restarts a camera. Both documented in `docs/api/`.
+
+### Changed
+
+- **One clear, actionable message for every connection problem.** The wording
+  shown when a camera won't connect used to be defined in three places that
+  disagreed; it's now a single source of truth that tells a refused port, a
+  timeout, a rejected password (→ *"Update it in Settings → Cameras"*), and the
+  case where both HTTP and HTTPS are off apart from one another.
+- **The Add Camera form now validates as you type.** An empty or malformed
+  address, a bad port, a missing username, or a camera you've already added is
+  caught with an inline message instead of being saved blindly — on macOS and iOS.
+
+### Known limitations
+
+- On a camera reached only over Baichuan (web API off), **still-image snapshots
+  and recording search are unavailable** for now — live video and motion/AI
+  events work. Full parity lands in a follow-up (0.9.1).
 
 ## [0.8.3] — 2026-05-29
 
@@ -2232,7 +2248,8 @@ First public release.
 - All camera passwords stored in the macOS Keychain — never in plain text
 - No analytics, no telemetry, no accounts
 
-[Unreleased]: https://github.com/jestatsio/reolens/compare/v0.8.2...HEAD
+[0.9.0]: https://github.com/jestatsio/reolens/compare/v0.8.3...v0.9.0
+[0.8.3]: https://github.com/jestatsio/reolens/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/jestatsio/reolens/compare/v0.8.0...v0.8.2
 [0.8.0]: https://github.com/jestatsio/reolens/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/jestatsio/reolens/compare/v0.6.11...v0.7.0
