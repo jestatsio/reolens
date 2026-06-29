@@ -74,6 +74,7 @@ private struct AutoDetectPane: View {
                     prefilledHost: selected.host,
                     prefilledName: selected.displayName == selected.host ? "" : selected.displayName,
                     kindHint: selected.kindHint,
+                    controlTransport: selected.controlTransport,
                     onAdd: onAdd
                 )
             }
@@ -209,6 +210,10 @@ private struct CredentialsPane: View {
     let prefilledHost: String
     let prefilledName: String
     let kindHint: String
+    /// Control plane discovery detected for this device (`.baichuan` for a
+    /// web-API-off camera). Persisted on the entry so the first connect goes
+    /// straight to the right transport. GitHub #76.
+    let controlTransport: ControlTransport?
     let onAdd: (CameraEntry, String) -> Void
 
     @State private var displayName: String
@@ -216,10 +221,11 @@ private struct CredentialsPane: View {
     @State private var password = ""
     @State private var preferredCodec: VideoCodec = .h264
 
-    init(prefilledHost: String, prefilledName: String, kindHint: String, onAdd: @escaping (CameraEntry, String) -> Void) {
+    init(prefilledHost: String, prefilledName: String, kindHint: String, controlTransport: ControlTransport?, onAdd: @escaping (CameraEntry, String) -> Void) {
         self.prefilledHost = prefilledHost
         self.prefilledName = prefilledName
         self.kindHint = kindHint
+        self.controlTransport = controlTransport
         self.onAdd = onAdd
         _displayName = State(initialValue: prefilledName)
     }
@@ -278,7 +284,8 @@ private struct CredentialsPane: View {
             port: 80,
             username: username,
             useHTTPS: false,
-            preferredCodec: preferredCodec
+            preferredCodec: preferredCodec,
+            controlTransport: controlTransport
         )
         onAdd(entry, password)
     }

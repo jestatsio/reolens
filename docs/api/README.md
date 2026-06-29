@@ -111,8 +111,7 @@ bearer token, so no Reolink credentials are exposed to Home Assistant.
 
 ## Status
 
-This is the design artifact plus the `ReolensCore` contract (Phase 0–1).
-Implementation lands in phases — see the project plan: in-process adapter
-(`LiveCameraAPI`, Phase 2), the HTTP facade (`ReolensServer`, Phase 3), and the
-opt-in macOS integration (Phase 4). HLS streaming and the relay transport are
-later phases.
+Shipping in 0.9.0 (macOS, opt-in): the in-process adapter (`LiveCameraAPI`), the
+HTTP facade (`ReolensServer`), and the Settings → Advanced → Developer Mode →
+Local API toggle. HLS streaming, a server-side recording byte-relay, two-way
+audio, and the end-to-end-encrypted relay transport are later phases.

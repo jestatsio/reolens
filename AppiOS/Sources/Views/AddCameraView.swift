@@ -24,6 +24,9 @@ struct AddCameraView: View {
     @State private var preferredCodec: VideoCodec = .h264
     @State private var showingDiscovery: Bool = false
     @State private var fieldErrors: [CameraEntryDraft.Field: String] = [:]
+    /// Control plane discovery detected for a picked device, persisted so a
+    /// web-API-off camera connects straight over Baichuan. GitHub #76.
+    @State private var pickedTransport: ControlTransport? = nil
 
     private var isValid: Bool {
         !host.trimmingCharacters(in: .whitespaces).isEmpty
@@ -111,7 +114,8 @@ struct AddCameraView: View {
     private func submit() {
         let draft = CameraEntryDraft(
             displayName: displayName, host: host, port: port,
-            username: username, useHTTPS: useHTTPS, preferredCodec: preferredCodec
+            username: username, useHTTPS: useHTTPS, preferredCodec: preferredCodec,
+            controlTransport: pickedTransport
         )
         switch draft.validate(existing: store.cameras) {
         case .invalid(let errors):
@@ -127,10 +131,13 @@ struct AddCameraView: View {
         if displayName.isEmpty || displayName == host {
             displayName = device.displayName
         }
-        // Discovery picks up the HTTP port the device responded on —
-        // 80 for nearly every Reolink. The user can override on the
-        // form before saving.
-        port = "\(device.port)"
+        pickedTransport = device.controlTransport
+        // For a web-API-off (Baichuan) camera, discovery reports port 9000 —
+        // that's the Baichuan listener, not a CGI port. Store the CGI default
+        // (80); the persisted `.baichuan` transport makes the connect go
+        // straight to port 9000 internally. GitHub #76. For HTTP/HTTPS cameras,
+        // keep the port discovery responded on. The user can override either.
+        port = device.controlTransport == .baichuan ? "80" : "\(device.port)"
         // Reolink cameras don't advertise HTTPS-only by default; the
         // discovery sweep is HTTP. Leave `useHTTPS` at whatever the
         // user picked.

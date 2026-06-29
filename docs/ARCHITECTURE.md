@@ -62,8 +62,9 @@ Sources/
   ReolinkAPI/            — CGI client + Codable models + StreamURLs
   ReolinkStreaming/      — RTSP / VideoToolbox / H.264 + H.265 / SDP
   ReolinkBaichuan/       — port-9000 protocol (talkback, push, alarms)
+  ReolensCore/           — platform-agnostic /v1 API contract + DTOs
   ReolensServer/         — local /v1 REST API (Network.framework, macOS)
-Tests/                   — ~340 tests across 68 suites
+Tests/                   — ~675 tests across 117 suites
 Scripts/                 — build, sign, App Store (TestFlight) upload,
                            icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),
