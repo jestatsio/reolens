@@ -103,6 +103,15 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
     /// remote access "just works" later without any extra step.
     public var uid: String? = nil
 
+    /// 0.9.0 A4 — control plane the session should use to reach this camera.
+    /// `nil` means "auto / unknown": the first connect probes HTTP:80 →
+    /// HTTPS:443 → Baichuan:9000 and persists the result here. A persisted
+    /// `.baichuan` is written after a successful Baichuan fallback so the next
+    /// connect skips the 80/443 attempts a web-API-off camera will only refuse
+    /// (GitHub #76). Forward-compatible decode-and-ignore for older builds; an
+    /// unrecognized future value decodes to `nil`.
+    public var controlTransport: ControlTransport? = nil
+
     public init(
         id: UUID = UUID(),
         displayName: String,
@@ -118,7 +127,8 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
         tlsFingerprint: String? = nil,
         hiddenAppBadgeChannels: Set<Int> = [],
         homeKitEnabled: Bool = false,
-        uid: String? = nil
+        uid: String? = nil,
+        controlTransport: ControlTransport? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -135,6 +145,7 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
         self.hiddenAppBadgeChannels = hiddenAppBadgeChannels
         self.homeKitEnabled = homeKitEnabled
         self.uid = uid
+        self.controlTransport = controlTransport
     }
 
     /// Codable conformance: serialize the dict with String keys so JSON is round-trip clean.
@@ -148,7 +159,8 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
              tlsFingerprint,           // 0.4.1: TOFU TLS pinning
              hiddenAppBadgeChannels,   // 0.4.1: per-channel "hide app badges"
              homeKitEnabled,           // 0.6.0 Slice B2: HomeKit exposure opt-in
-             uid                       // 0.7.0 Phase 4b: Reolink P2P identifier
+             uid,                      // 0.7.0 Phase 4b: Reolink P2P identifier
+             controlTransport          // 0.9.0 A4: persisted control plane (skip web-API re-probe)
     }
 
     public init(from decoder: any Decoder) throws {
@@ -200,6 +212,10 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
         // those installs while the newer install has remote
         // access available.
         self.uid = try? c.decodeIfPresent(String.self, forKey: .uid)
+        // 0.9.0 A4 — optional + `try?` so an absent key (legacy cameras.json)
+        // OR an unrecognized future transport string both decode to nil rather
+        // than throwing. AGENTS.md §7 forward-compatible-decode.
+        self.controlTransport = try? c.decodeIfPresent(ControlTransport.self, forKey: .controlTransport)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -232,6 +248,10 @@ public struct CameraEntry: Identifiable, Hashable, Sendable, Codable {
         // successful LAN login stays "uid-less" and the JSON
         // doesn't gain a noisy `uid: null` line.
         try c.encodeIfPresent(uid, forKey: .uid)
+        // 0.9.0 A4 — emit only when actually known so an un-probed camera
+        // doesn't gain a `controlTransport: null` line and iCloud-sync diffs
+        // stay clean vs. a pre-0.9.0 cameras.json.
+        try c.encodeIfPresent(controlTransport, forKey: .controlTransport)
     }
 }
 
@@ -769,6 +789,13 @@ public final class CameraStore {
         session.onUIDObserved = { [weak self] uid in
             self?.recordUID(uid, for: id)
         }
+        // 0.9.0 A4 — back-channel: persist the control plane the session
+        // actually connected over (notably `.baichuan` after a web-API-off
+        // fallback) so the next connect can skip the 80/443 probes. Same
+        // closure shape as `onUIDObserved`; idempotent on the store side.
+        session.onControlTransportObserved = { [weak self] transport in
+            self?.recordControlTransport(transport, for: id)
+        }
         sessions[id] = session
         return session
     }
@@ -823,6 +850,19 @@ public final class CameraStore {
         guard let i = cameras.firstIndex(where: { $0.id == id }) else { return }
         guard cameras[i].uid != uid else { return }
         cameras[i].uid = uid
+        save()
+    }
+
+    /// 0.9.0 A4 — persist the control plane the session connected over (e.g.
+    /// `.baichuan` after a web-API-off fallback) so the next connect for this
+    /// camera goes straight to the right transport. Idempotent: re-writing the
+    /// same transport is a no-op, so the session hook can fire on every connect
+    /// without thrashing iCloud sync. Non-credential, non-hostname metadata
+    /// (AGENTS.md §3/§7). GitHub #76.
+    public func recordControlTransport(_ transport: ControlTransport, for id: CameraEntry.ID) {
+        guard let i = cameras.firstIndex(where: { $0.id == id }) else { return }
+        guard cameras[i].controlTransport != transport else { return }
+        cameras[i].controlTransport = transport
         save()
     }
 

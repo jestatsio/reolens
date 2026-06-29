@@ -157,6 +157,10 @@ When you bump the schema, write the migration in the PR description.
 - `com.reolens.developerMode`, `com.reolens.showCameraNameOnFeed`, `com.reolens.lastViewedCameraID` (`UserDefaults` keys) — now read/written via the new `AppPreferences` carve-out from `CameraStore`. The key names stay the same so existing prefs migrate transparently. `lastViewedCameraID` is iOS/iPadOS-only (macOS has its own sidebar state restoration).
 - Reolink wire types `RecordingScheduleSettings` and `MotionScheduleSettings` decode **both** observed firmware shapes (`schedule.table` canonical + `scheduleTable.mainStream` legacy) and always emit the canonical shape on write. Adding a future variant means extending `CodingKeys` + the custom `init(from:)` fall-back chain — never break the existing two paths.
 
+**0.9.0 introductions:**
+
+- `CameraEntry.controlTransport: ControlTransport?` — additive optional field in synced `cameras.json` (`.http` / `.https` / `.baichuan`, `nil` = auto/unknown). Forward-compat decode-and-ignore; an unrecognized future enum string decodes to `nil` (`try? decodeIfPresent`), so older apps tolerate a newer transport value. Encoded only when set, so an un-probed camera produces no `controlTransport` key and iCloud-sync diffs stay clean vs. a pre-0.9.0 `cameras.json`. Persisted after a successful Baichuan fallback so a web-API-off camera reconnects straight over port 9000 (GitHub #76). Non-credential, non-hostname metadata — never logged with a host.
+
 Bump the suffix on any breaking field change in a future minor release; never overload an existing `_v1` field's semantics.
 
 ## 8. Swift 6 concurrency
