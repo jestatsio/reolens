@@ -28,15 +28,19 @@ consumers (Home Assistant, scripts, third-party apps) are both built on.
 
 ## Authentication
 
-Every route except `GET /v1/health` requires a bearer token:
+Every route except the public contract document (`GET /v1/openapi.json`)
+requires a bearer token — including `GET /v1/health`, so an
+unauthenticated LAN peer cannot enumerate the fleet (the resulting 401
+still proves the server is up):
 
 ```
 Authorization: Bearer <token>
 ```
 
-The token is generated in the app (Settings → Local API), stored in the
-Keychain, and shown once. It is compared in constant time. Requests from peers
-outside the loopback / RFC-1918 LAN are refused.
+The token is generated in the app (Settings → Local API) and stored in
+the Keychain. It stays copyable there; Regenerate replaces it. It is
+compared in constant time. Requests from peers outside the loopback /
+RFC-1918 LAN are refused.
 
 ## Conventions
 
@@ -54,7 +58,7 @@ outside the loopback / RFC-1918 LAN are refused.
 
 | Method & path | Purpose |
 |---|---|
-| `GET /v1/health` | Liveness + summary (no auth) |
+| `GET /v1/health` | Liveness + summary (auth required; a 401 still proves liveness) |
 | `GET /v1/cameras` | List cameras |
 | `GET /v1/cameras/{id}` | One camera |
 | `GET /v1/cameras/{id}/channels` | Channels on a camera |
@@ -111,7 +115,9 @@ bearer token, so no Reolink credentials are exposed to Home Assistant.
 
 ## Status
 
-Shipping in 0.9.0 (macOS, opt-in): the in-process adapter (`LiveCameraAPI`), the
-HTTP facade (`ReolensServer`), and the Settings → Advanced → Developer Mode →
-Local API toggle. HLS streaming, a server-side recording byte-relay, two-way
+Shipping since 0.9.0 (macOS, opt-in): the in-process adapter (`LiveCameraAPI`),
+the HTTP facade (`ReolensServer`), and the Settings → Local API toggle.
+0.10.0 adds first-party consumers of this contract — the `reolens-cli`
+command-line tool and MCP server ([docs/cli-mcp.md](../cli-mcp.md)) — with no
+wire changes. HLS streaming, a server-side recording byte-relay, two-way
 audio, and the end-to-end-encrypted relay transport are later phases.

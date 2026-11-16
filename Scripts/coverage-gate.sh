@@ -82,21 +82,38 @@ xctest_binary=$(find "$build_dir" -name 'ReolensPackageTests.xctest' -type d 2>/
 if [[ -z "$xctest_binary" ]]; then
     xctest_binary=$(find .build -name '*PackageTests.xctest' -type d 2>/dev/null | head -n1 || true)
 fi
-if [[ -z "$xctest_binary" ]]; then
-    echo "ERROR: could not locate the SPM PackageTests xctest bundle" >&2
-    exit 2
-fi
 # Apple xctest bundles wrap the actual binary under
 # Contents/MacOS/<name>.
-if [[ -d "$xctest_binary/Contents/MacOS" ]]; then
+object_args=()
+if [[ -n "$xctest_binary" && -d "$xctest_binary/Contents/MacOS" ]]; then
     inner=$(find "$xctest_binary/Contents/MacOS" -type f -perm +111 | head -n1)
     if [[ -n "$inner" ]]; then
         xctest_binary="$inner"
     fi
 fi
+if [[ -z "$xctest_binary" ]]; then
+    # Newer SPM/Xcode layouts emit one bundle per test target
+    # (`<Target>Tests.xctest`) instead of a single aggregate
+    # `*PackageTests.xctest`. Feed them all to llvm-cov: the first is
+    # the primary binary, the rest ride `-object`. The aggregate path
+    # above is unchanged, so CI behavior is identical where it exists.
+    while IFS= read -r bundle; do
+        inner=$(find "$bundle/Contents/MacOS" -type f -perm +111 2>/dev/null | head -n1 || true)
+        [[ -n "$inner" ]] || continue
+        if [[ -z "$xctest_binary" ]]; then
+            xctest_binary="$inner"
+        else
+            object_args+=(-object "$inner")
+        fi
+    done < <(find .build -name '*Tests.xctest' -type d 2>/dev/null | sort)
+fi
+if [[ -z "$xctest_binary" ]]; then
+    echo "ERROR: could not locate any SPM xctest bundle under .build/" >&2
+    exit 2
+fi
 
 echo "profdata:     $profdata"
-echo "test binary:  $xctest_binary"
+echo "test binary:  $xctest_binary (+ $((${#object_args[@]} / 2)) via -object)"
 echo "slack:        $SLACK pp"
 echo ""
 
@@ -125,7 +142,7 @@ for target in "${TARGETS[@]}"; do
     # the target. Each Reolens target's sources live under
     # Sources/<target>/, which gives a clean regex anchor.
     summary=$(xcrun llvm-cov report \
-        "$xctest_binary" \
+        "$xctest_binary" ${object_args[@]+"${object_args[@]}"} \
         -instr-profile "$profdata" \
         -ignore-filename-regex='/(Tests|\.build)/' \
         "Sources/$target/" 2>/dev/null || true)

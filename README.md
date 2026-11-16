@@ -37,14 +37,24 @@ analytics, no telemetry, no accounts.
 
 <sub>Screenshot footage is procedurally rendered, not real captures — privacy-clean and still representative.</sub>
 
+## What's new in 0.10.0
+
+- **`reolens-cli`** — your cameras from the terminal: snapshots, PTZ,
+  recording search, settings, live events, fleet diagnostics. JSON by
+  default, built for scripts.
+- **MCP server** — the same surface as typed tools for Claude Code,
+  Codex, Cursor, and other agents. Still LAN-only, still no cloud.
+- **Cameras with their web API off** (from 0.9) connect automatically
+  over Baichuan — no settings to flip on the camera.
+
 ## Highlights
 
 - 🎥 **Live** — hardware-decoded RTSP (H.264 / H.265), adaptive grids up to 5×5, PiP, full 17-op PTZ, two-way talkback.
 - ⏺️ **Recordings** — day-density calendar, thumbnail scrubber, a cross-hub "All Recordings" feed, and on-device natural-language search.
 - 🔔 **Notifications** — rich motion / AI pushes with the trigger frame, relayed through *your own* iCloud, with per-camera and per-tag filters.
 - 🗓️ **Schedules** — visual recording grid, motion windows with per-AI-tag overrides, and drawable privacy zones.
-- 🧩 **Platform-native** — widgets, Live Activities + Dynamic Island, Shortcuts & Siri, Stage Manager, Liquid Glass throughout.
-- 🔌 **Local REST API** — opt-in, LAN-only `/v1` HTTP API on macOS for Home Assistant, Shortcuts, and scripts.
+- 🧩 **Platform-native** — widgets, Live Activities + Dynamic Island, Shortcuts & Siri, Stage Manager, Liquid Glass throughout, an Apple TV living-room viewer, and a Watch companion.
+- 🔌 **Local REST API + CLI + MCP** — opt-in, LAN-only `/v1` HTTP API on macOS for Home Assistant, Shortcuts, and scripts, plus the `reolens-cli` terminal tool and MCP server so AI agents can drive the same contract.
 - 🔒 **Private by design** — no server, no accounts, no telemetry; camera passwords stay in the Keychain.
 
 → The full surface lives in **[docs/FEATURES.md](docs/FEATURES.md)**.
@@ -72,12 +82,34 @@ Requires Xcode 26 + Swift 6.2.
 1. **Launch Reolens.** It asks for Local Network permission (to reach your
    cameras) and Notification permission (for motion alerts).
 2. **Click + in the sidebar** to add a camera. Enter its IP (or hostname),
-   username, and password — the rest is auto-detected.
+   username, and password — the rest is auto-detected, including cameras
+   that ship with their web API turned off.
 3. **Pick a camera** to view it, and use the toolbar layout picker to switch
    between adaptive / spotlight / 2×2 → 4×4 grids.
 
 Drag tiles to rearrange; right-click for "Make primary", "Rotate", and
 per-channel settings.
+
+## Command line & AI agents
+
+Enable **Settings → Advanced → Developer Mode → Local HTTP API** on your
+Mac, copy the token, and the same cameras answer to the terminal:
+
+```sh
+export REOLENS_API_TOKEN=…   # copied from Settings
+reolens-cli cameras list
+reolens-cli --camera "Front Door" snapshot --file porch.jpg
+reolens-cli --camera Driveway ptz left --duration-ms 800
+reolens-cli events --types person
+```
+
+AI agents get the typed-tool version over MCP
+(`reolens-cli mcp-server`). Install the universal binary from the
+[latest release](https://github.com/jestatsio/reolens/releases/latest),
+or `swift run reolens-cli` from a checkout. Camera passwords never
+enter the CLI — it holds only the API token.
+
+→ Setup, commands, and MCP client config in **[docs/cli-mcp.md](docs/cli-mcp.md)**.
 
 ## Remote access
 
@@ -93,7 +125,9 @@ personal use, ~10 minutes to set up, and no open ports or WAN-IP exposure.
 
 - **macOS 26 Tahoe+** (Apple Silicon or Intel), or **iPadOS / iOS 26+**
 - **A Reolink camera, NVR, or Home Hub** on the local network
-- HTTP / HTTPS access to the device's CGI port (default 80 / 443)
+- HTTP / HTTPS access to the device's CGI port (default 80 / 443) — or a
+  camera with the web API off, which connects automatically over Baichuan
+  (port 9000) since 0.9.0
 
 On macOS 14 / iOS 18? Stay on the 0.4.x security-backport track — see
 [SECURITY.md](SECURITY.md). FoundationModels features (Today digest, NL search)
@@ -126,6 +160,7 @@ metadata. The full model is in [AGENTS.md](AGENTS.md) §3, §4.
 | [Features](docs/FEATURES.md) | The full feature surface |
 | [Architecture](docs/ARCHITECTURE.md) | Layers, concurrency model, repo layout |
 | [Local REST API](docs/api/README.md) | The `/v1` HTTP API contract |
+| [CLI + MCP server](docs/cli-mcp.md) | `reolens-cli` commands and agent setup |
 | [Roadmap](docs/ROADMAP.md) | What's planned next |
 | [Changelog](CHANGELOG.md) | Per-release history |
 | [Contributing](CONTRIBUTING.md) · [AGENTS.md](AGENTS.md) | Dev setup + engineering principles |
@@ -133,9 +168,10 @@ metadata. The full model is in [AGENTS.md](AGENTS.md) §3, §4.
 ## Development
 
 ```sh
-swift build                 # libs + macOS app
-swift test                  # ~675 tests across 117 suites
+swift build                 # libs + macOS app + reolens-cli
+swift test                  # 716 tests across 122 suites
 ./Scripts/build-app.sh run  # bundled .app (needed for Local Network access)
+swift run reolens-cli --help  # CLI + MCP server (needs the app's Local API on)
 
 bash Scripts/check-versions.sh  # macOS + iOS marketing versions must match
 bash Scripts/coverage-gate.sh   # per-target coverage regression gate

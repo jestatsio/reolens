@@ -16,6 +16,35 @@ Status keys:
 
 ---
 
+## Current state (2026-11-16, 0.10.0)
+
+0.10.0 shipped the native `reolens-cli` + MCP server over the `/v1`
+contract (see [docs/cli-mcp.md](cli-mcp.md) and
+[docs/0.10.0-plan.md](0.10.0-plan.md) for why the official
+reolink-cli binaries could not be integrated directly). Follow-ups
+from that release, in rough order:
+
+- **Notarized CLI downloads** — needs a Developer ID Application
+  certificate in CI secrets (the current tarball is ad-hoc signed;
+  first run needs a quarantine removal). Maintainer decision.
+- **reolink-cli feature harvest** — lights (IR/spotlight/white-LED),
+  siren, encoder settings, image flip/tune, device users, Wi-Fi,
+  firmware upgrade, Hub scenes. Each needs a Reolink wire model in
+  `ReolinkAPI`/`ReolinkBaichuan` validated against real hardware
+  before it can join the contract, app UI, CLI, and MCP together.
+- **Baichuan parity** (carried from 0.9.0) — snapshot (cmd 109
+  multi-frame accumulator) and recording search on web-API-off
+  cameras; needs CX410-class end-to-end validation.
+- **MCP event subscriptions** — v1 MCP is request/response only;
+  live events ride CLI `events` / SSE. Add notifications once a
+  client workflow actually needs push.
+- **Agent skill packaging** — publish a `reolens-cli` operator skill
+  (reolink-cli-style) once the CLI surface settles for a release.
+
+Sections below predate 0.7.0–0.10.0 and keep their original status
+labels; re-triage them against the shipped tree before planning
+0.11.0 rather than treating their target versions as live.
+
 ## Note on 0.6.3
 
 0.6.3 was a **course-correction release**, not a features release.
@@ -96,7 +125,7 @@ genuinely minor-bump-worthy storyline turns out to be.
 
 - **Status:** In progress.
 - **Driver:** Release-plan WS7. Top-10 worst offenders fixed in 0.6.1
-  (see [docs/audit-0.6.1-error-sites.md](audit-0.6.1-error-sites.md));
+  (see [docs/archive/audit-0.6.1-error-sites.md](archive/audit-0.6.1-error-sites.md));
   0.6.2 takes the next 30 sites, with tests covering the ones the
   ClipExporter storyline naturally touches. The remaining ~150 sites
   migrate incrementally as `AppError` adoption widens.

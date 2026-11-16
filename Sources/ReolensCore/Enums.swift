@@ -35,3 +35,26 @@ public enum StreamQuality: String, Sendable, Codable, CaseIterable, Hashable {
     case main
     case sub
 }
+
+/// A camera session's connection state, as reported by diagnostics.
+///
+/// 0.10.0 cleanup: was a bare `String` on ``CameraDiagnostics``. Raw values
+/// are unchanged, so the `/v1` wire shape is identical; only the Swift type
+/// tightened. Named distinctly from AppShared's internal `ConnectionStatus`
+/// (which carries an associated error reason and never leaves the app).
+public enum CameraConnectionStatus: String, Sendable, Codable, CaseIterable, Hashable {
+    case connected
+    case connecting
+    case disconnected
+    case error
+}
+
+/// The control plane a camera session connected over, as reported by
+/// diagnostics. Mirrors AppShared's persisted `ControlTransport` raw values
+/// (`http` / `https` / `baichuan`) without coupling the contract to the
+/// app's synced-schema type.
+public enum CameraControlTransport: String, Sendable, Codable, CaseIterable, Hashable {
+    case http
+    case https
+    case baichuan
+}

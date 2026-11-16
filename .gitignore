@@ -53,3 +53,10 @@ AppiOS/ReolensiOS.xcodeproj/
 # iOS build artifacts — archives, exported IPAs, etc. Produced by
 # Scripts/build-ios.sh.
 build-ios/
+
+# Python bytecode from Scripts/*.py helpers + web-research cache.
+__pycache__/
+.firecrawl/
+
+# CLI release tarballs (Scripts/build-cli.sh).
+dist/

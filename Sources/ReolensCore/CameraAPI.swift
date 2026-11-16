@@ -70,6 +70,9 @@ public protocol CameraAPI: Sendable {
     /// open until the consumer stops iterating (or the task is cancelled).
     func events(_ filter: EventFilter) -> AsyncStream<EventResource>
 
-    /// Liveness / summary for this instance. Safe to call unauthenticated.
+    /// Liveness / summary for this instance. The in-process call needs no
+    /// credentials; the HTTP facade still requires the bearer token for
+    /// `GET /v1/health` so an unauthenticated LAN peer can't enumerate the
+    /// fleet (the 401 itself proves the server is up).
     func health() async throws -> SystemHealth
 }

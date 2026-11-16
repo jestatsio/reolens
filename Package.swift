@@ -43,6 +43,16 @@ let package = Package(
         // ReolensCore; the app injects the live implementation. See
         // docs/api/.
         .library(name: "ReolensServer", targets: ["ReolensServer"]),
+        // 0.10.0 — ReolensClient: `CameraAPI` over HTTP `/v1` with an
+        // injectable transport. The CLI/MCP processes hold only the
+        // bearer token; the Mac app holds camera sessions + passwords.
+        .library(name: "ReolensClient", targets: ["ReolensClient"]),
+        // 0.10.0 — ReolensMCP: hand-rolled MCP (JSON-RPC 2.0 over stdio)
+        // core generic over `any CameraAPI`. Zero dependencies.
+        .library(name: "ReolensMCP", targets: ["ReolensMCP"]),
+        // 0.10.0 — ReolensCLIKit: argv parsing + command dispatch for
+        // the `reolens-cli` executable, testable headlessly.
+        .library(name: "ReolensCLIKit", targets: ["ReolensCLIKit"]),
         .library(name: "AppShared", targets: ["AppShared"]),
         // 0.6.4 — Minimal watchOS-facing surface used by the
         // companion Watch App target in `ReolensiOS.xcodeproj`.
@@ -58,9 +68,12 @@ let package = Package(
         // 0.7.0 — small diagnostic CLI for end-to-end smoke
         // tests of the remote-connectivity stack against a real
         // Reolink camera. Not shipped to users; lives in the
-        // package so `swift run RemoteSmoke <uid> <user> <pass>`
+        // package so `REOLENS_SMOKE_PASSWORD=… swift run RemoteSmoke <uid> <user>`
         // works from a checkout.
-        .executable(name: "RemoteSmoke", targets: ["RemoteSmoke"])
+        .executable(name: "RemoteSmoke", targets: ["RemoteSmoke"]),
+        // 0.10.0 — user-facing CLI + MCP server (`reolens-cli`), a client
+        // of the Mac app's Local API. See docs/cli-mcp.md.
+        .executable(name: "reolens-cli", targets: ["ReolensCLI"])
     ],
     dependencies: [],
     targets: [
@@ -242,10 +255,50 @@ let package = Package(
             // 0.7.0 — diagnostic CLI for end-to-end smoke
             // tests of `RemoteTransport` against a real
             // Reolink camera. Run as:
-            //   swift run RemoteSmoke <uid> <username> <password>
+            //   REOLENS_SMOKE_PASSWORD=… swift run RemoteSmoke <uid> <username>
             name: "RemoteSmoke",
             dependencies: ["ReolinkP2P", "ReolinkBaichuan", "ReolinkBcUdp"],
             path: "Sources/RemoteSmoke",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .target(
+            // 0.10.0 — HTTP client half of the contract. Foundation-only;
+            // the transport is injectable so tests need no sockets.
+            name: "ReolensClient",
+            dependencies: ["ReolensCore"],
+            path: "Sources/ReolensClient",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .target(
+            // 0.10.0 — MCP server core over `any CameraAPI`. Hand-rolled
+            // JSON-RPC 2.0; the stdio loop lives in the executable shell.
+            name: "ReolensMCP",
+            dependencies: ["ReolensCore"],
+            path: "Sources/ReolensMCP",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .target(
+            // 0.10.0 — CLI parsing/dispatch. Pure over `any CameraAPI`
+            // plus file writes for snapshots/downloads, so the whole
+            // command surface is unit-testable without a process.
+            name: "ReolensCLIKit",
+            dependencies: ["ReolensCore", "ReolensClient", "ReolensMCP"],
+            path: "Sources/ReolensCLIKit",
+            swiftSettings: [
+                .enableUpcomingFeature("ExistentialAny")
+            ]
+        ),
+        .executableTarget(
+            // 0.10.0 — thin @main shell for `reolens-cli`.
+            name: "ReolensCLI",
+            dependencies: ["ReolensCLIKit", "ReolensClient", "ReolensMCP", "ReolensCore"],
+            path: "Sources/ReolensCLI",
             swiftSettings: [
                 .enableUpcomingFeature("ExistentialAny")
             ]
@@ -317,6 +370,27 @@ let package = Package(
             name: "AppSharedTests",
             dependencies: ["AppShared", "ReolinkAPI"],
             path: "Tests/AppSharedTests"
+        ),
+        .testTarget(
+            // 0.10.0 — RemoteCameraAPI against a stub transport: request
+            // shapes, envelope/error decoding, SSE parsing. No sockets.
+            name: "ReolensClientTests",
+            dependencies: ["ReolensClient", "ReolensCore", "ReolensServer"],
+            path: "Tests/ReolensClientTests"
+        ),
+        .testTarget(
+            // 0.10.0 — MCP JSON-RPC lifecycle + tool dispatch against an
+            // in-memory fake CameraAPI.
+            name: "ReolensMCPTests",
+            dependencies: ["ReolensMCP", "ReolensCore"],
+            path: "Tests/ReolensMCPTests"
+        ),
+        .testTarget(
+            // 0.10.0 — CLI argv parsing, envelopes, exit codes, selectors
+            // against a fake CameraAPI. No process, no sockets.
+            name: "ReolensCLIKitTests",
+            dependencies: ["ReolensCLIKit", "ReolensCore", "ReolensClient"],
+            path: "Tests/ReolensCLIKitTests"
         )
     ]
 )

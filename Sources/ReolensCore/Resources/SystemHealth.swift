@@ -2,9 +2,11 @@ import Foundation
 
 /// Liveness / summary information for the API instance.
 ///
-/// Returned by ``CameraAPI/health()`` and served at `GET /v1/health` — the one
-/// route that does not require a bearer token, so a consumer can confirm the
-/// API is up before authenticating.
+/// Returned by ``CameraAPI/health()`` and served at `GET /v1/health`. The
+/// HTTP route requires the bearer token like every other route except the
+/// public contract document (`GET /v1/openapi.json`); an unauthenticated
+/// probe still learns the server is up from the 401, without learning
+/// anything about the fleet.
 public struct SystemHealth: Sendable, Codable, Hashable {
     /// The contract version this instance serves, e.g. `"v1"`.
     public let apiVersion: String

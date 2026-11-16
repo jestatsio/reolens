@@ -10,11 +10,11 @@ import Foundation
 /// reason the app surfaces, never a raw URL.
 public struct CameraDiagnostics: Sendable, Codable, Hashable {
     public let id: CameraID
-    /// `"connected"` / `"connecting"` / `"disconnected"` / `"error"`.
-    public let connectionStatus: String
-    /// The control plane the session connected over: `"http"` / `"https"` /
-    /// `"baichuan"`. `nil` when the camera isn't currently connected.
-    public let controlTransport: String?
+    /// The session's connection state.
+    public let connectionStatus: CameraConnectionStatus
+    /// The control plane the session connected over. `nil` when the camera
+    /// isn't currently connected.
+    public let controlTransport: CameraControlTransport?
     /// Whether the camera is currently connected.
     public let online: Bool
     /// Number of live channels the session has discovered.
@@ -27,8 +27,8 @@ public struct CameraDiagnostics: Sendable, Codable, Hashable {
 
     public init(
         id: CameraID,
-        connectionStatus: String,
-        controlTransport: String?,
+        connectionStatus: CameraConnectionStatus,
+        controlTransport: CameraControlTransport?,
         online: Bool,
         channelCount: Int,
         eventCount: Int,

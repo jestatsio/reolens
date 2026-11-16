@@ -476,22 +476,14 @@ func renderAbout() {
     var cursor = iconRect.minY - 36
     drawTextCentered(ctx, "Reolens", fontSize: 30, weight: 0.5, centerX: centerX, y: cursor, color: textPrimary)
     cursor -= 26
-    drawTextCentered(ctx, "Version 0.3.0", fontSize: 13, centerX: centerX, y: cursor, color: textSecondary)
+    drawTextCentered(ctx, "Version 0.10.0", fontSize: 13, centerX: centerX, y: cursor, color: textSecondary)
     cursor -= 34
     drawTextCentered(ctx, "A native client for Reolink cameras", fontSize: 13, centerX: centerX, y: cursor, color: textSecondary)
     cursor -= 18
     drawTextCentered(ctx, "on macOS, iPad, and iPhone.", fontSize: 13, centerX: centerX, y: cursor, color: textSecondary)
 
-    // "Check for Updates…" rendered as a real-looking pill button.
-    let btnLabel = "Check for Updates…"
-    let btnLabelW = measureText(btnLabel, fontSize: 13, weight: 0.4)
-    let btnPadX: CGFloat = 18
-    let btnH: CGFloat = 28
-    let btnW = btnLabelW + btnPadX * 2
-    cursor -= 36
-    let btnRect = CGRect(x: centerX - btnW / 2, y: cursor - btnH + 8, width: btnW, height: btnH)
-    roundedRect(ctx, btnRect, radius: 6, fill: rgb(0.22, 0.24, 0.28), stroke: (strokeMid, 1))
-    drawTextCentered(ctx, btnLabel, fontSize: 13, weight: 0.4, centerX: centerX, y: btnRect.midY - 5, color: accent)
+    // (0.10.0: no update button in the mock — Sparkle retired in 0.8.0;
+    // updates arrive via the App Store, so the panel is version + links.)
 
     // Footer — subtle divider, then domain + copyright.
     let dividerY = content.minY + 70

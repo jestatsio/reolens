@@ -30,7 +30,9 @@ paths:
     get:
       tags: [system]
       summary: Liveness and summary
-      security: []   # the one unauthenticated route
+      # Authenticated like every route except /openapi.json: an
+      # unauthenticated probe gets a 401 (which still proves liveness)
+      # without learning the fleet summary.
       responses:
         "200":
           description: OK
@@ -309,7 +311,7 @@ paths:
     get:
       tags: [system]
       summary: This contract as JSON
-      security: []
+      security: []   # the one unauthenticated route
       responses:
         "200": { description: OpenAPI document }
 

@@ -16,6 +16,10 @@ The full feature surface of Reolens. For a quick overview see the
   patrols) from a dedicated control bar.
 - **Battery cameras** wake on the first tap; the single-camera detail
   view auto-wakes on appear so you don't tap twice.
+- **Cameras with their web API off just work** (0.9.0) — newer firmware
+  that ships HTTP/HTTPS disabled connects automatically over Baichuan
+  (port 9000) with live video, motion/AI events, and PTZ; Reolens
+  remembers which control plane each camera answers on.
 
 ## Recordings
 
@@ -81,6 +85,10 @@ The full feature surface of Reolens. For a quick overview see the
 - **Shortcuts & Siri** — "Hey Siri, open the Front Door camera in
   Reolens." Three App Intents: Open Camera, Show Today's Events,
   Mute Camera Notifications.
+- **Apple TV viewer** — a living-room live-view app (tvOS): focusable
+  camera grid into fullscreen RTSP, fed by the iCloud-synced camera
+  list with opt-in encrypted credential sync.
+- **Watch companion** — glanceable camera snapshots on Apple Watch.
 - **Auto-updates** — App Store and TestFlight on every Apple platform.
 
 ## Local REST API (macOS, opt-in)
@@ -92,3 +100,16 @@ Developer Mode → Local API**. It binds to your LAN only, is secured with
 a bearer token, is off by default, and adds no dependencies (no Reolens
 server — it runs on your own Mac). Built for Home Assistant, Shortcuts,
 and scripts. Full contract in [docs/api/](api/README.md).
+
+## Command line + AI agents (macOS, opt-in)
+
+- **`reolens-cli`** (0.10.0) — a native terminal client for the same
+  contract: list cameras, save snapshots, timed PTZ jogs, recording
+  search, settings, reboot, a fleet-wide `doctor`, and a live event
+  follow mode. JSON envelopes by default, `--output text` for humans,
+  scriptable exit codes. Ships as a universal binary on each GitHub
+  Release; talks only to your Mac's Local API with its bearer token.
+- **MCP server** — `reolens-cli mcp-server` exposes typed tools
+  (`cameras_list`, `camera_snapshot`, `camera_ptz`, …) over stdio so
+  Claude Code, Codex, Cursor, and other MCP clients can drive your
+  cameras in plain language. Setup in [cli-mcp.md](cli-mcp.md).

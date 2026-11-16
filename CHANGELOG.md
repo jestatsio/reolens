@@ -5,6 +5,68 @@ All notable changes to Reolens are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.10.0] — 2026-11-16
+
+The 0.10.0 line — "Drive it from anywhere local".
+
+### Added
+
+- **`reolens-cli`: drive your cameras from the terminal.** A native
+  command-line tool in the spirit of the official reolink-cli, built on
+  Reolens's own `/v1` contract: list cameras, save snapshots, move PTZ
+  (including timed jogs that stop themselves), search recordings,
+  change channel settings, reboot, follow the live motion/AI event
+  stream, and run a one-shot `doctor` across the fleet. JSON envelopes
+  by default for `jq` and scripts (`--output text` for humans), with
+  scriptable exit codes (0 ok, 1 API error, 2 usage, 3 server
+  unreachable). It talks to Reolens for Mac's Local API — the app keeps
+  holding camera sessions and passwords; the CLI holds only the API
+  token (`REOLENS_API_TOKEN`). Ships as a universal macOS binary on
+  each GitHub Release. See `docs/cli-mcp.md`.
+- **An MCP server for AI agents.** `reolens-cli mcp-server` exposes the
+  same surface as typed tools (`cameras_list`, `camera_snapshot`,
+  `camera_ptz`, …) over stdio for Claude Code, Codex, Cursor, and any
+  other MCP client — "show me the front door", "point the back-yard
+  camera left, then take a snapshot". Hand-rolled JSON-RPC on the
+  existing contract; no new dependencies, no Reolens server, still
+  LAN-only (§5). Reboot requires an explicit confirmation argument.
+- **Why not Reolink's own CLI?** The official reolink-cli binaries are
+  proprietary (EULA, unpublished source, no iOS build), so they can't
+  ship inside an App Store app. 0.10.0 builds the same shape natively
+  instead; the two tools coexist fine. `docs/0.10.0-plan.md` records
+  the analysis.
+
+### Changed
+
+- **Cleanup across the tree.** `CameraDiagnostics` status/transport
+  are now typed enums (identical wire values — the `/v1` JSON is
+  unchanged, and the Swift contract finally matches `openapi.yaml`).
+  `RemoteSmoke` takes its password from the environment or stdin
+  instead of argv. The last `print()` hex dumps in the P2P transport
+  moved to `os.Logger` (§11). Stale 0.6.x audit docs moved under
+  `docs/archive/`; a tracked Python bytecode file was untracked. The
+  coverage gate also learned the per-target test-bundle layout of
+  current Xcode/SPM (it previously errored locally while passing in
+  CI); CI behavior is unchanged where the aggregate bundle exists.
+- **Docs now tell the truth about `/v1/health`.** The gateway has
+  always required the bearer token there (deliberately — a 401 proves
+  liveness without enumerating your cameras); the API README,
+  OpenAPI file, and contract comments said otherwise. Fixed to match
+  the code. The token also stays copyable in Settings (docs claimed
+  "shown once").
+
+### Known limitations
+
+- The CLI binary is not notarized yet (no Developer ID certificate in
+  CI), so a downloaded copy needs a one-time
+  `xattr -d com.apple.quarantine` — or build from source.
+- reolink-cli capabilities with no Reolink wire model in Reolens yet
+  (lights/siren control, encoder settings, device users, Wi-Fi,
+  firmware upgrade) are not in the CLI/MCP either; they need
+  camera-validated wire work and are tracked in `docs/ROADMAP.md`.
+- Baichuan-only cameras still lack snapshots/recording search (the
+  0.9.0 limitation carries over; needs CX410-class validation).
+
 ## [0.9.0] — 2026-06-29
 
 ### Added
@@ -2248,6 +2310,7 @@ First public release.
 - All camera passwords stored in the macOS Keychain — never in plain text
 - No analytics, no telemetry, no accounts
 
+[0.10.0]: https://github.com/jestatsio/reolens/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/jestatsio/reolens/compare/v0.8.3...v0.9.0
 [0.8.3]: https://github.com/jestatsio/reolens/compare/v0.8.2...v0.8.3
 [0.8.2]: https://github.com/jestatsio/reolens/compare/v0.8.0...v0.8.2
