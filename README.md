@@ -169,7 +169,7 @@ metadata. The full model is in [AGENTS.md](AGENTS.md) §3, §4.
 
 ```sh
 swift build                 # libs + macOS app + reolens-cli
-swift test                  # 716 tests across 122 suites
+swift test                  # 721 tests across 124 suites
 ./Scripts/build-app.sh run  # bundled .app (needed for Local Network access)
 swift run reolens-cli --help  # CLI + MCP server (needs the app's Local API on)
 

@@ -149,3 +149,12 @@ struct RemoteCameraAPITests {
         #expect(diag.controlTransport == .baichuan)
     }
 }
+
+@Suite("URLSessionTransport request shapes")
+struct TransportRequestTests {
+    @Test("streaming requests disable the idle timeout so quiet SSE streams are not reaped")
+    func streamingTimeout() {
+        let request = ClientRequest(method: "GET", url: URL(string: "http://127.0.0.1:8443/v1/events")!)
+        #expect(URLSessionTransport.streamingRequest(request).timeoutInterval == .infinity)
+    }
+}

@@ -72,7 +72,7 @@ Sources/
   ReolensMCP/            — MCP server core (JSON-RPC over stdio)
   ReolensCLIKit/         — reolens-cli parsing + dispatch
   ReolensCLI/            — reolens-cli executable (@main shell)
-Tests/                   — 716 tests across 122 suites
+Tests/                   — 721 tests across 124 suites
 Scripts/                 — build, sign, App Store (TestFlight) upload,
                            icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),

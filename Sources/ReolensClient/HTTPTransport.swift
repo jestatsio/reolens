@@ -64,17 +64,26 @@ public enum ReolensClientError: Error, Sendable, Hashable {
 /// URL (the bearer token rides the `Authorization` header only).
 public struct URLSessionTransport: HTTPTransport {
     private let session: URLSession
+    private let streamingSession: URLSession
 
     public init(session: URLSession? = nil) {
         if let session {
             self.session = session
+            self.streamingSession = session
         } else {
+            // Unary calls should fail fast when the server is wedged.
             let config = URLSessionConfiguration.ephemeral
             config.timeoutIntervalForRequest = 30
-            // SSE event following is long-lived by design; the resource
-            // timeout must not kill an idle-but-healthy event stream.
             config.timeoutIntervalForResource = 60 * 60 * 24
             self.session = URLSession(configuration: config)
+            // Streaming (SSE) is the opposite shape: silence between
+            // events is normal, so neither timeout may reap an idle
+            // stream. The server also sends heartbeat comments, but
+            // the client must not depend on their cadence.
+            let streamingConfig = URLSessionConfiguration.ephemeral
+            streamingConfig.timeoutIntervalForRequest = 60 * 60 * 24
+            streamingConfig.timeoutIntervalForResource = 60 * 60 * 24
+            self.streamingSession = URLSession(configuration: streamingConfig)
         }
     }
 
@@ -93,8 +102,8 @@ public struct URLSessionTransport: HTTPTransport {
     }
 
     public func streamLines(_ request: ClientRequest) -> AsyncThrowingStream<String, any Error> {
-        let session = self.session
-        let urlRequest = Self.urlRequest(request)
+        let session = self.streamingSession
+        let urlRequest = Self.streamingRequest(request)
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -117,6 +126,16 @@ public struct URLSessionTransport: HTTPTransport {
             }
             continuation.onTermination = { _ in task.cancel() }
         }
+    }
+
+    /// Build the streaming variant of a request: same shape, but with
+    /// the per-request idle timeout disabled so a quiet SSE stream is
+    /// never reaped for silence (also covers injected sessions whose
+    /// configuration we do not control).
+    static func streamingRequest(_ request: ClientRequest) -> URLRequest {
+        var streaming = urlRequest(request)
+        streaming.timeoutInterval = .infinity
+        return streaming
     }
 
     private static func urlRequest(_ request: ClientRequest) -> URLRequest {

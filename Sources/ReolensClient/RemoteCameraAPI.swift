@@ -154,7 +154,10 @@ public struct RemoteCameraAPI: CameraAPI {
                 } catch {
                     // Match the in-process semantics: a dead upstream ends
                     // the stream cleanly rather than throwing (the
-                    // protocol's stream is non-throwing).
+                    // protocol's stream is non-throwing). Callers that
+                    // must distinguish "never subscribed" from "quiet
+                    // fleet" pre-flight with health()/resolveCamera —
+                    // CLIRunner.events does exactly that.
                 }
                 continuation.finish()
             }

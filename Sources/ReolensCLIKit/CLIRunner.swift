@@ -152,7 +152,16 @@ public struct CLIRunner: Sendable {
     private func events(_ command: CLICommand, _ config: CLIConfig, _ api: any CameraAPI, maxEvents: Int?, detections: [DetectionKind]?, sink: (@Sendable (String) -> Void)?) async throws -> CLIOutcome {
         var filter = EventFilter(detections: detections)
         if let selector = config.camera, !selector.isEmpty {
+            // Doubles as the subscription pre-flight: a down server or
+            // bad token throws here with the proper exit code.
             filter.cameraID = try await api.resolveCamera(selector).id
+        } else {
+            // Without a selector nothing else touches the server before
+            // subscribing, and the event stream itself completes
+            // cleanly on failure by contract — so probe explicitly.
+            // A stopped server exits 3, a bad token exits 1, instead
+            // of a silent success a script would trust.
+            _ = try await api.health()
         }
         if config.channelExplicit {
             filter.channel = config.channel

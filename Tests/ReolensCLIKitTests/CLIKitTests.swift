@@ -205,3 +205,23 @@ struct CLIRunnerTests {
         #expect(outcome.stdout.split(separator: "\n").count == 2)
     }
 }
+
+extension CLIRunnerTests {
+    @Test("events against a stopped server exit 3 instead of silent success")
+    func eventsUnreachable() async {
+        let fake = FakeAPI()
+        fake.failure = ReolensClientError.unreachable("Cannot reach the Reolens server")
+        let outcome = await CLIRunner().run(.events(maxEvents: 1, detections: nil), config: config, api: fake)
+        #expect(outcome.exitCode == 3)
+        #expect(outcome.stderr.contains("unreachable"))
+    }
+
+    @Test("events with a bad token exit 1 instead of silent success")
+    func eventsUnauthorized() async {
+        let fake = FakeAPI()
+        fake.failure = APIError.unauthorized()
+        let outcome = await CLIRunner().run(.events(maxEvents: 1, detections: nil), config: config, api: fake)
+        #expect(outcome.exitCode == 1)
+        #expect(outcome.stderr.contains("unauthorized"))
+    }
+}
