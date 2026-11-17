@@ -38,7 +38,7 @@ struct FakeCameraAPI: CameraAPI {
     }
 
     var diagnosticsValue = CameraDiagnostics(
-        id: "CAM-1", connectionStatus: "connected", controlTransport: "baichuan",
+        id: "CAM-1", connectionStatus: .connected, controlTransport: .baichuan,
         online: true, channelCount: 1, eventCount: 0, lastError: nil
     )
 

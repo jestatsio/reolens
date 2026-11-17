@@ -52,6 +52,22 @@ img {
   height: auto;
 }
 
+::selection {
+  background: rgba(76, 210, 255, 0.28);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+  }
+}
+
 code, pre {
   font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, monospace;
   font-size: 13px;
@@ -62,8 +78,8 @@ code, pre {
 .hero {
   position: relative;
   background:
-    radial-gradient(1200px 600px at 50% -100px, rgba(76, 210, 255, 0.18), transparent 60%),
-    linear-gradient(180deg, #14213d 0%, #0c1224 70%);
+    radial-gradient(900px 480px at 50% -120px, rgba(76, 210, 255, 0.09), transparent 60%),
+    linear-gradient(180deg, #101a30 0%, #0c1224 72%);
   border-bottom: 1px solid var(--border);
   padding: 0 24px 80px;
   overflow: hidden;
@@ -108,8 +124,9 @@ code, pre {
 }
 
 .hero-icon {
-  margin: 0 auto 24px;
-  filter: drop-shadow(0 12px 30px rgba(76, 210, 255, 0.25));
+  margin: 0 auto 26px;
+  border-radius: 28px;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.45);
 }
 
 h1 {
@@ -162,8 +179,7 @@ h1 {
   box-shadow: var(--shadow-md), 0 0 0 1px rgba(76, 210, 255, 0.4) inset;
 }
 .btn-primary:hover {
-  transform: translateY(-1px);
-  background: linear-gradient(180deg, #6cdcff, #29bce4);
+  filter: brightness(1.08);
 }
 
 .btn-secondary {
@@ -172,7 +188,6 @@ h1 {
   border-color: var(--border);
 }
 .btn-secondary:hover {
-  transform: translateY(-1px);
   border-color: var(--accent-bright);
   color: var(--accent-bright);
 }
@@ -194,19 +209,19 @@ main {
 }
 
 .section h2 {
-  font-size: clamp(28px, 4vw, 36px);
-  letter-spacing: -0.01em;
-  margin: 0 0 8px;
-  text-align: center;
+  font-size: clamp(28px, 4vw, 38px);
+  letter-spacing: -0.02em;
+  margin: 0 0 10px;
+  text-align: left;
   font-weight: 700;
 }
 
 .section-sub {
-  text-align: center;
+  text-align: left;
   color: var(--fg-soft);
-  margin: 0 auto 40px;
-  max-width: 560px;
-  font-size: 15px;
+  margin: 0 0 40px;
+  max-width: 640px;
+  font-size: 15.5px;
 }
 
 .section-quiet {
@@ -220,13 +235,24 @@ main {
   font-size: 22px;
   margin-bottom: 16px;
 }
+.section-quiet .features-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 700px) {
+  .section-quiet .features-grid {
+    grid-template-columns: 1fr;
+  }
+  .section-quiet {
+    padding: 32px 22px;
+  }
+}
 
 /* ── Features ─────────────────────────────────────────────────────── */
 
 .features-grid {
   margin-top: 40px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
   gap: 18px;
 }
 
@@ -235,24 +261,27 @@ main {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 26px 24px;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 .feature:hover {
-  transform: translateY(-2px);
-  border-color: rgba(76, 210, 255, 0.45);
+  border-color: rgba(76, 210, 255, 0.4);
+  background: #1a2745;
 }
 
 .feature-ico {
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(76, 210, 255, 0.18), rgba(41, 87, 137, 0.4));
+  background: rgba(76, 210, 255, 0.08);
+  border: 1px solid rgba(76, 210, 255, 0.16);
   color: var(--accent-bright);
-  font-size: 20px;
   margin-bottom: 14px;
+}
+.feature-ico svg {
+  display: block;
 }
 
 .feature h3 {
@@ -273,7 +302,7 @@ main {
 .shots-grid {
   margin-top: 30px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr));
   gap: 24px;
 }
 
@@ -308,7 +337,7 @@ main {
 
 .download-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
   gap: 20px;
 }
 
@@ -402,15 +431,104 @@ main {
   margin-top: 8px;
 }
 
+/* ── CLI section ──────────────────────────────────────────────────── */
+
+.cli-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 28px;
+  align-items: start;
+  margin-top: 8px;
+}
+
+.terminal {
+  min-width: 0;
+  background: #080d1a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+.terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.02);
+}
+.terminal-bar span {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #2a3655;
+}
+.terminal-bar em {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--fg-quiet);
+  letter-spacing: 0.04em;
+}
+.terminal pre {
+  margin: 0;
+  padding: 18px 20px 20px;
+  overflow-x: auto;
+  line-height: 1.65;
+}
+.terminal code {
+  color: #cfe3f5;
+  font-size: 12.5px;
+  white-space: pre;
+}
+.t-prompt {
+  color: var(--accent-bright);
+  user-select: none;
+}
+.t-out {
+  color: var(--fg-quiet);
+}
+
+.cli-copy h3 {
+  margin: 4px 0 10px;
+  font-size: 19px;
+  font-weight: 600;
+}
+.cli-copy p {
+  color: var(--fg-soft);
+  font-size: 15px;
+  margin: 0 0 14px;
+}
+.cli-copy code {
+  color: var(--accent-bright);
+}
+.cli-points {
+  margin: 0 0 16px;
+  padding-left: 18px;
+  color: var(--fg-soft);
+  font-size: 14.5px;
+}
+.cli-points li { margin-bottom: 7px; }
+.cli-points strong { color: var(--fg); }
+
+@media (max-width: 860px) {
+  .cli-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* ── Mobile ───────────────────────────────────────────────────────── */
 
 @media (max-width: 640px) {
   .top-nav {
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
   }
   .nav-links {
-    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px 16px;
+    font-size: 13.5px;
   }
   .section {
     padding: 60px 0;

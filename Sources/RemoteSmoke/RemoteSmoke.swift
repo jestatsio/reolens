@@ -10,8 +10,13 @@ import ReolinkP2P
 /// ## Usage
 ///
 /// ```bash
-/// swift run RemoteSmoke <uid> <username> <password>
+/// REOLENS_SMOKE_PASSWORD=… swift run RemoteSmoke <uid> <username>
+/// # or: printf '%s\n' "$PW" | swift run RemoteSmoke --password-stdin <uid> <username>
 /// ```
+///
+/// 0.10.0 cleanup: the password no longer travels in argv (visible in
+/// `ps` and shell history). It comes from `REOLENS_SMOKE_PASSWORD` or
+/// one stdin line via `--password-stdin`, matching reolink-cli.
 ///
 /// The UID is the 16-character Reolink-assigned identifier
 /// printed on the camera or visible in the official app's
@@ -40,6 +45,7 @@ struct RemoteSmoke {
     static func main() async {
         let rawArgs = CommandLine.arguments
         var verbose = false
+        var passwordStdin = false
         var senderIDOverride: UInt32?
         var positional: [String] = []
         var i = 1
@@ -47,6 +53,9 @@ struct RemoteSmoke {
             let arg = rawArgs[i]
             if arg == "--verbose" || arg == "-v" {
                 verbose = true
+                i += 1
+            } else if arg == "--password-stdin" {
+                passwordStdin = true
                 i += 1
             } else if arg == "--sender-id" {
                 guard i + 1 < rawArgs.count else {
@@ -65,18 +74,26 @@ struct RemoteSmoke {
                 i += 1
             }
         }
-        guard positional.count == 3 else {
-            print("usage: swift run RemoteSmoke [--verbose] [--sender-id <hex>] <uid> <username> <password>")
-            print("  e.g. swift run RemoteSmoke -v 9527000I500W1NSQ admin secret")
-            print("       swift run RemoteSmoke --sender-id 0x003D0CCF <uid> ...")
+        guard positional.count == 2 else {
+            print("usage: REOLENS_SMOKE_PASSWORD=… swift run RemoteSmoke [--verbose] [--sender-id <hex>] <uid> <username>")
+            print("  e.g. REOLENS_SMOKE_PASSWORD=… swift run RemoteSmoke -v 9527000I500W1NSQ admin")
+            print("       printf '%s\\n' \"$PW\" | swift run RemoteSmoke --password-stdin <uid> <username>")
             exit(2)
         }
         let uid = positional[0]
         let username = positional[1]
-        let password = positional[2]
+        let password: String
+        if let fromEnv = ProcessInfo.processInfo.environment["REOLENS_SMOKE_PASSWORD"], !fromEnv.isEmpty {
+            password = fromEnv
+        } else if passwordStdin, let line = readLine(), !line.isEmpty {
+            password = line
+        } else {
+            print("error: set REOLENS_SMOKE_PASSWORD or pass --password-stdin (passwords in argv are visible in ps)")
+            exit(2)
+        }
         if verbose {
             PosixBcUdpTransport.verboseLogging = true
-            print("[verbose] enabled — every outbound + inbound BcUdp packet will be hex-dumped")
+            print("[verbose] enabled — BcUdp packets hex-dump to the unified log (subsystem com.reolens.p2p, .debug)")
         }
         if let senderIDOverride {
             P2PDiscovery.senderIDOverride = senderIDOverride

@@ -145,13 +145,42 @@ public final class ReolensAPIServer: @unchecked Sendable {
             + "Cache-Control: no-cache\r\n"
             + "Connection: keep-alive\r\n\r\n"
         try await connection.sendData(Data(head.utf8))
-        for await event in stream {
-            guard let json = try? APIJSON.encoder.encode(event),
-                  let line = String(data: json, encoding: .utf8) else { continue }
+        for await line in sseLines(events: stream) {
             do {
-                try await connection.sendData(Data("data: \(line)\n\n".utf8))
+                try await connection.sendData(Data("\(line)\n\n".utf8))
             } catch {
                 break   // consumer disconnected
+            }
+        }
+    }
+
+    /// The SSE wire lines for an event stream: `data:` payloads merged
+    /// with periodic `: heartbeat` comments. Quiet fleets can go
+    /// minutes between events; without heartbeats, idle timeouts (and
+    /// proxies) reap healthy connections. SSE comments are ignored by
+    /// consumers, so heartbeats are safe to send unconditionally.
+    static func sseLines(events: AsyncStream<EventResource>, heartbeatInterval: Duration = .seconds(15)) -> AsyncStream<String> {
+        AsyncStream { continuation in
+            let heartbeat = Task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: heartbeatInterval)
+                    if !Task.isCancelled {
+                        continuation.yield(": heartbeat")
+                    }
+                }
+            }
+            let producer = Task {
+                for await event in events {
+                    guard let json = try? APIJSON.encoder.encode(event),
+                          let line = String(data: json, encoding: .utf8) else { continue }
+                    continuation.yield("data: \(line)")
+                }
+                heartbeat.cancel()
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in
+                heartbeat.cancel()
+                producer.cancel()
             }
         }
     }

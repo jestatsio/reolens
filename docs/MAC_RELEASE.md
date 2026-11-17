@@ -87,11 +87,13 @@ export AC_API_KEY_P8_BASE64="$(base64 < /path/to/AuthKey_<ID>.p8)"
 ## Subsequent uploads (CI, tag-driven)
 
 ```sh
-git tag v0.8.1 && git push origin v0.8.1
+git tag v0.10.0 && git push origin v0.10.0
 ```
 
-fires `release.yml` → `mac-testflight` + `ios-testflight` run in parallel and
-upload to the one record; `github-release` then publishes the GitHub Release.
+fires `release.yml` → `mac-testflight` + `ios-testflight` + `cli` run in
+parallel (the apps upload to the one record; `cli` builds the universal
+`reolens-cli` tarball); `github-release` then publishes the GitHub Release
+with the CLI tarball attached.
 The job stamps `CURRENT_PROJECT_VERSION` with `${{ github.run_number }}`, and
 `ReolensMac`'s `CFBundleVersion` is `$(CURRENT_PROJECT_VERSION)`, so each upload
 gets a unique, increasing build number automatically.

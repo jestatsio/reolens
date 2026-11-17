@@ -45,6 +45,17 @@ repo Settings → Pages → `main` `/docs`, custom domain `reolens.io`).
   ```sh
   ./Scripts/build-app.sh && ./Reolens.app/Contents/MacOS/Reolens --smoke-test
   ```
+- [ ] **Build the App Store targets locally** — the first 0.9.0 tag died here
+  (`ReolensMac` missing a dependency that `swift build` never exercised):
+  ```sh
+  cd AppiOS && xcodegen generate && cd ..
+  xcodebuild -project AppiOS/ReolensiOS.xcodeproj -scheme ReolensMac \
+    -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO build
+  xcodebuild -project AppiOS/ReolensiOS.xcodeproj -scheme ReolensiOS \
+    -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+  xcodebuild -project AppiOS/ReolensiOS.xcodeproj -scheme ReolensTVOS \
+    -destination 'generic/platform=tvOS' CODE_SIGNING_ALLOWED=NO build
+  ```
 
 ### 2. Bump the version
 
@@ -76,14 +87,17 @@ git tag vX.Y.Z && git push origin vX.Y.Z
 ```
 
 The tag fires [`.github/workflows/release.yml`](../.github/workflows/release.yml),
-three jobs:
+four jobs:
 
 1. **`mac-testflight`** — archives `ReolensMac`, exports a signed `.pkg`,
    uploads via `xcrun altool --type macos`.
 2. **`ios-testflight`** — archives `ReolensiOS`, exports a signed `.ipa`,
    uploads to TestFlight.
-3. **`github-release`** — after both succeed, publishes the GitHub Release for
-   the tag (notes only; no binaries — the apps live on the App Store).
+3. **`cli`** (0.10.0) — builds the universal `reolens-cli` tarball via
+   `Scripts/build-cli.sh` (ad-hoc signed until a Developer ID cert exists).
+4. **`github-release`** — after all three succeed, publishes the GitHub
+   Release for the tag with the CLI tarball attached (the apps themselves
+   live on the App Store).
 
 ### 4. Post-release
 
@@ -93,7 +107,8 @@ three jobs:
   App Review on the first build).
 - [ ] When ready for the public App Store, submit the build for review from the
   App Store tab (separate from TestFlight).
-- [ ] Confirm the GitHub Release for `vX.Y.Z` published.
+- [ ] Confirm the GitHub Release for `vX.Y.Z` published, with the
+  `reolens-cli-X.Y.Z-macos-universal.tar.gz` asset attached.
 
 ## Rolling back
 

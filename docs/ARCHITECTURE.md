@@ -16,10 +16,14 @@ layout, see [AppiOS/README.md](../AppiOS/README.md).
 │            PollManager, EventNotifier, RelayDiagnostics,         │
 │            SharedContainer, ReolensGlass design tokens, …)       │
 ├──────────────────────────────────────────────────────────────────┤
-│ ReolinkBaichuan (port 9000: talkback, alarm push, findAlarmVideo)│
+│ ReolinkBaichuan (port 9000: control plane, talkback, alarm push) │
 │ ReolinkStreaming (RTSP + VideoToolbox + H.264 / H.265 + SDP)     │
 ├──────────────────────────────────────────────────────────────────┤
 │ ReolinkAPI (CGI client, Commands, Codable models, StreamURLs)    │
+├──────────────────────────────────────────────────────────────────┤
+│ ReolensCore (the /v1 contract) — LiveCameraAPI (AppShared) in-   │
+│   process · ReolensServer HTTP facade · ReolensClient +          │
+│   ReolensMCP + reolens-cli as token-only clients of the Mac app  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -64,7 +68,11 @@ Sources/
   ReolinkBaichuan/       — port-9000 protocol (talkback, push, alarms)
   ReolensCore/           — platform-agnostic /v1 API contract + DTOs
   ReolensServer/         — local /v1 REST API (Network.framework, macOS)
-Tests/                   — ~675 tests across 117 suites
+  ReolensClient/         — CameraAPI over HTTP /v1 (injectable transport)
+  ReolensMCP/            — MCP server core (JSON-RPC over stdio)
+  ReolensCLIKit/         — reolens-cli parsing + dispatch
+  ReolensCLI/            — reolens-cli executable (@main shell)
+Tests/                   — 721 tests across 124 suites
 Scripts/                 — build, sign, App Store (TestFlight) upload,
                            icon generation, coverage gate, version-check gate
 docs/                    — reolens.io landing page (GitHub Pages),
@@ -74,5 +82,7 @@ docs/                    — reolens.io landing page (GitHub Pages),
   ci.yml                 — build + test + smoke launch + coverage gate
                            + iOS XCUITest job
   release.yml            — on tag push: archive + upload iOS & macOS
-                           to App Store Connect / TestFlight
+                           to App Store Connect / TestFlight, build the
+                           universal reolens-cli tarball, publish the
+                           GitHub Release
 ```

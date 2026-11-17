@@ -418,10 +418,61 @@ jobs:
   # shipped. No binaries are attached — the apps live on the App Store now
   # — this is the tag + release notes for the CHANGELOG. (0.7.0 retired the
   # DMG/appcast assets the old macOS `release` job used to attach here.)
+  # 0.10.0 — universal `reolens-cli` binary (CLI + MCP server), attached
+  # to the GitHub Release. Linker-signed (ad-hoc) only for now: no
+  # Developer ID Application cert exists in CI secrets yet, so downloads
+  # need a one-time quarantine removal (docs/cli-mcp.md). Notarized
+  # distribution is a follow-up once that cert exists. The CLI has no
+  # signing/entitlement needs — it only makes LAN HTTP requests to the
+  # Mac app's Local API with the user's bearer token.
+  cli:
+    name: CLI (universal binary)
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+
+      - name: Select newest Xcode 26
+        run: |
+          XCODE_PATH=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | grep -vi beta | sort -V | tail -n 1)
+          if [ -z "$XCODE_PATH" ]; then
+            echo "No Xcode 26.x found on the runner image." >&2
+            ls /Applications/ | grep -i Xcode || true
+            exit 1
+          fi
+          echo "Selecting $XCODE_PATH"
+          sudo xcode-select -s "$XCODE_PATH/Contents/Developer"
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+          echo "$XCODE_PATH/Contents/Developer/usr/bin" >> "$GITHUB_PATH"
+
+      - name: Verify macOS / iOS versions align
+        run: ./Scripts/check-versions.sh
+
+      - name: Build CLI tarball
+        run: ./Scripts/build-cli.sh
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: reolens-cli
+          path: dist/reolens-cli-*-macos-universal.tar.gz
+          if-no-files-found: error
+
   github-release:
     name: GitHub Release
     runs-on: ubuntu-latest
-    needs: [mac-testflight, ios-testflight]
+    needs: [mac-testflight, ios-testflight, cli]
     steps:
       - name: Resolve tag
         id: tag
@@ -439,11 +490,18 @@ jobs:
           ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
 
+      - name: Download CLI artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: reolens-cli
+          path: dist
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Reolens ${{ steps.tag.outputs.version }}
+          files: dist/reolens-cli-*-macos-universal.tar.gz
           generate_release_notes: true
           body: |
             Reolens ships on the App Store / TestFlight for iPhone, iPad, and Mac.

@@ -180,8 +180,8 @@ struct GatewayRoutingTests {
         #expect(response.status == 200)
         let decoded = try jsonDecoder.decode(APIResponse<CameraDiagnostics>.self, from: response.body)
         #expect(decoded.data?.id == "CAM-1")
-        #expect(decoded.data?.controlTransport == "baichuan")
-        #expect(decoded.data?.connectionStatus == "connected")
+        #expect(decoded.data?.controlTransport == .baichuan)
+        #expect(decoded.data?.connectionStatus == .connected)
     }
 
     @Test("diagnostics for an unknown camera is 404")

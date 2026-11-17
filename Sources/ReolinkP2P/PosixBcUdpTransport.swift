@@ -43,12 +43,14 @@ public struct PosixBcUdpTransport: BcUdpTransport {
 
     public init() {}
 
-    /// When set, every outbound packet's bytes are printed to
-    /// stdout before send and every received packet's bytes are
-    /// printed after receive. Off by default; flipped on in
-    /// diagnostic builds (e.g. `RemoteSmoke --verbose`) so
-    /// development can compare our wire bytes against captured
-    /// official-client traffic.
+    /// When set, every outbound packet's bytes are logged before
+    /// send and every received packet's bytes after receive, at
+    /// `.debug` with host/payload marked private (AGENTS.md §11 —
+    /// no `print()` in shipped code; raw wire bytes are fingerprint
+    /// material). Off by default; flipped on in diagnostic builds
+    /// (e.g. `RemoteSmoke --verbose`) so development can compare our
+    /// wire bytes against captured official-client traffic. View via
+    /// Console.app or `log stream --predicate 'subsystem == "com.reolens.p2p"'`.
     public static nonisolated(unsafe) var verboseLogging: Bool = false
 
     public func sendAndAwaitReply(
@@ -59,8 +61,8 @@ public struct PosixBcUdpTransport: BcUdpTransport {
     ) async throws -> BcUdpPacket {
         let bytes = packet.encode()
         if Self.verboseLogging {
-            print("[posix-udp] → \(host):\(port) (\(bytes.count) bytes)")
-            print("[posix-udp]   \(Self.hexDump(bytes))")
+            log.debug("[posix-udp] → \(host, privacy: .private):\(port) (\(bytes.count) bytes)")
+            log.debug("[posix-udp]   \(Self.hexDump(bytes), privacy: .private)")
         }
         let timeoutMillis = Self.millisFromDuration(timeout)
         return try await withCheckedThrowingContinuation { (cont: CheckedContinuation<BcUdpPacket, any Error>) in
@@ -161,8 +163,8 @@ public struct PosixBcUdpTransport: BcUdpTransport {
         // 6. Decode the BcUdp packet.
         let payload = Data(bytes: buf, count: received)
         if verboseLogging {
-            print("[posix-udp] ← \(host):\(port) (\(payload.count) bytes)")
-            print("[posix-udp]   \(hexDump(payload))")
+            log.debug("[posix-udp] ← \(host, privacy: .private):\(port) (\(payload.count) bytes)")
+            log.debug("[posix-udp]   \(hexDump(payload), privacy: .private)")
         }
         guard let (packet, _) = BcUdpPacket.decode(from: payload) else {
             throw BcUdpTransportError.malformedReply(host: host, port: port)
@@ -224,4 +226,3 @@ public struct PosixBcUdpTransport: BcUdpTransport {
         return Int32(millis)
     }
 }
-

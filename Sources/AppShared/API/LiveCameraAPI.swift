@@ -162,20 +162,20 @@ public struct LiveCameraAPI: CameraAPI {
     /// (AGENTS.md §3 — `lastError` is the already-sanitized user-facing reason).
     @MainActor
     static func makeDiagnostics(id: CameraID, session: CameraSession?) -> CameraDiagnostics {
-        let connectionStatus: String
+        let connectionStatus: CameraConnectionStatus
         let lastError: String?
         switch session?.status {
-        case .connected?:          connectionStatus = "connected";    lastError = nil
-        case .connecting?:         connectionStatus = "connecting";   lastError = nil
-        case .error(let reason)?:  connectionStatus = "error";        lastError = reason
-        case .disconnected?, nil:  connectionStatus = "disconnected"; lastError = nil
+        case .connected?:          connectionStatus = .connected;    lastError = nil
+        case .connecting?:         connectionStatus = .connecting;   lastError = nil
+        case .error(let reason)?:  connectionStatus = .error;        lastError = reason
+        case .disconnected?, nil:  connectionStatus = .disconnected; lastError = nil
         }
         let online = session?.status == .connected
-        let transport: String?
+        let transport: CameraControlTransport?
         if online, let session {
             transport = session.usingBaichuanControl
-                ? "baichuan"
-                : (session.credentials.useHTTPS ? "https" : "http")
+                ? .baichuan
+                : (session.credentials.useHTTPS ? .https : .http)
         } else {
             transport = nil
         }

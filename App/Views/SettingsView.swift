@@ -213,7 +213,7 @@ struct SettingsView: View {
                     LocalAPIController.shared.setEnabled(newValue, store: store)
                     apiToken = newValue ? LocalAPITokenStore.current() : nil
                 }
-            Text("Serves a read/control REST API for your cameras on this Mac's LAN, secured with a bearer token. Off by default. For Home Assistant, scripts, and other local integrations — never the public internet. macOS only; see docs/api/.")
+            Text("Serves a read/control REST API for your cameras on this Mac's LAN, secured with a bearer token. Off by default. For Home Assistant, scripts, other local integrations, and the reolens-cli command-line tool (docs/cli-mcp.md) — never the public internet. macOS only; see docs/api/.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if runLocalAPI {
